@@ -1,43 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gun4fun Entrenamiento</title>
+    <title>Gun4fun Tactical Training</title>
     <style>
-        body { margin: 0; background: #1a1a1a; color: white; font-family: 'Arial', sans-serif; text-align: center; overflow: hidden; touch-action: manipulation; }
-        #game-canvas { background: #333; border: 2px solid #555; display: block; margin: 0 auto; cursor: crosshair; }
-        #ui { padding: 10px; font-size: 20px; font-weight: bold; background: #000; }
-        #target { width: 60px; height: 60px; background: radial-gradient(circle, red 20%, white 20%, white 40%, red 40%, red 60%, white 60%, white 80%, red 80%); border-radius: 50%; position: absolute; }
+        body { margin: 0; background: #222; color: white; font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none; }
+        #game-box { position: relative; width: 100vw; height: 100vh; background: radial-gradient(circle, #444, #111); cursor: crosshair; }
+        #ui-layer { position: absolute; top: 0; width: 100%; padding: 20px; display: flex; justify-content: space-around; background: rgba(0,0,0,0.5); z-index: 10; font-size: 20px; color: #0f0; }
+        .target { 
+            position: absolute; width: 60px; height: 60px; 
+            background: repeating-radial-gradient(circle, #ff0000, #ff0000 10px, #ffffff 10px, #ffffff 20px);
+            border-radius: 50%; border: 2px solid #000; box-shadow: 0 0 15px rgba(255,0,0,0.5);
+            transition: transform 0.1s;
+        }
+        #crosshair {
+            position: absolute; width: 40px; height: 40px; border: 2px solid #0f0; border-radius: 50%;
+            pointer-events: none; transform: translate(-50%, -50%); z-index: 5;
+        }
+        #crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: #0f0; }
+        #crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 100%; background: #0f0; }
+        #msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; text-align: center; display: none; background: rgba(0,0,0,0.8); padding: 20px; border: 2px solid #0f0; }
     </style>
 </head>
 <body>
-    <div id="ui">PUNTOS: <span id="score">0</span></div>
-    <div id="game-container" style="position: relative; width: 100vw; height: 90vh;">
-        <div id="target" onclick="shoot()"></div>
+    <div id="game-box">
+        <div id="ui-layer">
+            <div>PUNTOS: <span id="score">0</span></div>
+            <div>TIEMPO: <span id="timer">30</span>s</div>
+        </div>
+        <div id="crosshair"></div>
+        <div id="msg">
+            <h2>FIN DEL ENTRENAMIENTO</h2>
+            <p>Puntuación: <span id="final-score">0</span></p>
+            <button onclick="location.reload()" style="padding:10px 20px; background:#0f0; border:none; cursor:pointer;">REINTENTAR</button>
+        </div>
     </div>
 
     <script>
         let score = 0;
-        const target = document.getElementById('target');
-        const scoreDisplay = document.getElementById('score');
+        let timeLeft = 30;
+        let gameActive = true;
+        const box = document.getElementById('game-box');
+        const crosshair = document.getElementById('crosshair');
 
-        function moveTarget() {
-            // Mueve el objetivo a una posición aleatoria
-            const x = Math.random() * (window.innerWidth - 80);
-            const y = Math.random() * (window.innerHeight - 150);
+        // Mover mira con el dedo/ratón
+        window.addEventListener('mousemove', (e) => {
+            crosshair.style.left = e.clientX + 'px';
+            crosshair.style.top = e.clientY + 'px';
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            crosshair.style.left = touch.clientX + 'px';
+            crosshair.style.top = touch.clientY + 'px';
+        });
+
+        function createTarget() {
+            if(!gameActive) return;
+            const target = document.createElement('div');
+            target.className = 'target';
+            const x = Math.random() * (window.innerWidth - 70);
+            const y = Math.random() * (window.innerHeight - 150) + 70;
             target.style.left = x + 'px';
             target.style.top = y + 'px';
+            
+            target.onclick = () => {
+                if(!gameActive) return;
+                score += 10;
+                document.getElementById('score').innerText = score;
+                target.style.transform = 'scale(0)';
+                setTimeout(() => target.remove(), 100);
+                createTarget();
+            };
+
+            box.appendChild(target);
+            // El objetivo desaparece solo tras 1.5 segundos si no le das
+            setTimeout(() => { if(target.parentNode) target.remove(); createTarget(); }, 1500);
         }
 
-        function shoot() {
-            score++;
-            scoreDisplay.innerText = score;
-            moveTarget();
-        }
+        // Cuenta atrás
+        const countdown = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if(timeLeft <= 0) {gameActive = false;
+                clearInterval(countdown);
+                document.getElementById('msg').style.display = 'block';
+                document.getElementById('final-score').innerText = score;
+            }
+        }, 1000);
 
-        // Iniciar el primer objetivo
-        moveTarget();
+        // Crear los primeros objetivos
+        createTarget();
+        createTarget();
     </script>
 </body>
 </html>
