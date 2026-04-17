@@ -4,38 +4,45 @@ from flask import Flask
 from threading import Thread
 from telebot import types
 
-# --- CONFIGURACIÓN DEL SERVIDOR (Para Render) ---
+# --- 1. CONFIGURACIÓN DEL SERVIDOR WEB (Para evitar que Render se duerma) ---
 app = Flask('')
+
 @app.route('/')
 def home():
-    return "Bot is alive!"
+    return "¡Bot Gun4Fun está vivo y operando!"
 
-def run():
+def run_server():
+    # Render usa el puerto de la variable PORT, si no existe usa el 8080
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
-# --- CONFIGURACIÓN DEL BOT ---
+def keep_alive():
+    t = Thread(target=run_server)
+    t.daemon = True
+    t.start()
+
+# --- 2. CONFIGURACIÓN DEL BOT DE TELEGRAM ---
+# Asegúrate de que en Render has puesto la variable "BOT_TOKEN"
 TOKEN = os.getenv('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
+# Comando /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. ¡Estás listo soldado!")
 
-# --- COMANDO /GAME ---
+# Comando /game
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    # Ya no enviamos "send_photo", Telegram usará la imagen que subiste a BotFather
-    
-    # --- LANZAR MISIÓN 01 ---
+    # Misión 01
     bot.send_message(message.chat.id, "🎯 **MISIÓN 01: ENTRENAMIENTO BÁSICO**", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_01")
 
-    # --- LANZAR MISIÓN 02 ---
+    # Misión 02
     bot.send_message(message.chat.id, "🚀 **MISIÓN 02: ASALTO TÁCTICO (PRO)**", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_02")
 
-# --- MANEJADOR DE BOTONES ---
+# Manejador de los botones de "Play" de los juegos
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     if call.game_short_name == 'shooter_01':
@@ -45,8 +52,9 @@ def callback_handler(call):
     else:
         bot.answer_callback_query(call.id)
 
-# --- ARRANQUE ---
+# --- 3. ARRANQUE COMBINADO ---
 if __name__ == "__main__":
-    t = Thread(target=run)
-    t.start()
-    bot.polling(none_stop=True)
+    print("Lanzando servidor de vida...")
+    keep_alive()  # Arranca Flask en un hilo separado
+    print("Bot iniciando polling...")
+    bot.polling(none_stop=True) # Arranca el bot
