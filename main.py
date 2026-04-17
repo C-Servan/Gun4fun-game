@@ -21,8 +21,7 @@ def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. Estas listo soldado!.")
 @bot.message_handler(commands=['game'])
 def send_game(message):
-    # Cambia 'shooter1' por el "Short Name" que pusiste en BotFather
-    bot.send_game(message.chat.id, "shooter1")
+    bot.send_game(message.chat.id, "shooter_01")
 
 @bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter1')
 def game_callback(call):
