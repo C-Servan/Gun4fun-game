@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Super Shooter 02 - Tactical</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            physics: {
+                default: 'arcade',
+                arcade: { gravity: { y: 0 }, debug: false }
+            },
+            scene: { preload: preload, create: create, update: update }
+        };
+
+        const game = new Phaser.Game(config);
+        let player;
+        let cursors;
+
+        function preload() {
+            // Imágenes profesionales provisionales (las cambiaremos por tus assets luego)
+            this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
+            this.load.image('player', 'https://labs.phaser.io/assets/sprites/shmup-ship.png');
+            this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
+        }
+
+        function create() {
+            // Añadir fondo
+            this.add.image(window.innerWidth / 2, window.innerHeight / 2, 'sky').setScale(2);
+
+            // Añadir jugador con físicas
+            player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, 'player');
+            player.setCollideWorldBounds(true);
+
+            // Control táctil: la nave sigue al dedo/ratón
+            this.input.on('pointermove', (pointer) => {
+                player.x = pointer.x;
+            });
+        }
+
+        function update() {
+            // Aquí irá la lógica de disparo y enemigos
+        }
+    </script>
+</body>
+</html>
