@@ -1,56 +1,105 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Super Shooter 02 - Tactical</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style>
-        body { margin: 0; background: #000; overflow: hidden; }
-        canvas { display: block; }
-    </style>
+    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; } </style>
 </head>
 <body>
-    <script>
-        const config = {
-            type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            physics: {
-                default: 'arcade',
-                arcade: { gravity: { y: 0 }, debug: false }
-            },
-            scene: { preload: preload, create: create, update: update }
-        };
+<script>
+    const config = {
+        type: Phaser.AUTO,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        physics: { default: 'arcade', arcade: { debug: false } },
+        scene: { preload: preload, create: create, update: update }
+    };
 
-        const game = new Phaser.Game(config);
-        let player;
-        let cursors;
+    const game = new Phaser.Game(config);
+    let player, enemies, bullets, score = 0, scoreText;
 
-        function preload() {
-            // Imágenes profesionales provisionales (las cambiaremos por tus assets luego)
-            this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
-            this.load.image('player', 'https://labs.phaser.io/assets/sprites/shmup-ship.png');
-            this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet11.png');
+    function preload() {
+        // Fondos y personajes - Asegúrate de que los nombres coincidan con tus archivos en assets
+        this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
+        this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
+        this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
+        this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
+        this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
+        this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
+    }
+
+    function create() {
+        // Fondo de jungla estirado para cubrir la pantalla
+        let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla');
+        bg.setDisplaySize(window.innerWidth, window.innerHeight);
+        
+        // El Soldado Gun4fun
+        player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - 80, 'soldado');
+        player.setScale(0.8); // Ajusta el tamaño según tu imagen
+        player.setCollideWorldBounds(true);
+
+        // Grupos
+        bullets = this.physics.add.group({ defaultKey: 'bala' });
+        enemies = this.physics.add.group();
+
+        // Generador aleatorio de enemigos (cada 1.2 segundos)
+        this.time.addEvent({ delay: 1200, callback: spawnEnemy, callbackScope: this, loop: true });
+
+        // Marcador de puntos
+        scoreText = this.add.text(16, 16, 'Bajas: 0', { fontSize: '24px', fill: '#fff', backgroundColor: '#000' });
+
+        // Colisiones
+        this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
+        this.physics.add.overlap(player, enemies, gameOver, null, this);
+        
+        // Controles táctiles
+        this.input.on('pointermove', (pointer) => { player.x = pointer.x; });
+        this.input.on('pointerdown', () => { fireAction.call(this); });
+    }
+
+    function spawnEnemy() {
+        const x = Phaser.Math.Between(50, window.innerWidth - 50);
+        const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
+        const tipoAleatorio = tipos[Math.floor(Math.random() * tipos.length)];
+        
+        let enemy = enemies.create(x, -50, tipoAleatorio);
+        enemy.setScale(0.7);
+        
+        // Velocidades distintas: El tigre es el más rápido
+        let velocidad = 200;
+        if (tipoAleatorio === 'tigre') velocidad = 350;
+        if (tipoAleatorio === 'serpiente') velocidad = 150;
+        
+        enemy.setVelocityY(velocidad);
+    }
+
+    function fireAction() {
+        let bullet = bullets.get(player.x, player.y - 40);
+        if (bullet) {
+            bullet.setActive(true).setVisible(true);
+            bullet.setVelocityY(-500);
         }
+    }
 
-        function create() {
-            // Añadir fondo
-            this.add.image(window.innerWidth / 2, window.innerHeight / 2, 'sky').setScale(2);
+    function hitEnemy(bullet, enemy) {
+        bullet.destroy();
+        enemy.destroy();
+        score += 10;
+        scoreText.setText('Bajas: ' + score);
+    }
 
-            // Añadir jugador con físicas
-            player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, 'player');
-            player.setCollideWorldBounds(true);
+    function gameOver(player, enemy) {
+        this.physics.pause();
+        player.setTint(0xff0000);
+        this.add.text(window.innerWidth/2 - 100, window.innerHeight/2, 'MISION FALLIDA', { fontSize: '32px', fill: '#ff0000', backgroundColor: '#000' });
+        
+        // Reiniciar tras 3 segundos
+        this.time.delayedCall(3000, () => { this.scene.restart(); });
+    }
 
-            // Control táctil: la nave sigue al dedo/ratón
-            this.input.on('pointermove', (pointer) => {
-                player.x = pointer.x;
-            });
-        }
-
-        function update() {
-            // Aquí irá la lógica de disparo y enemigos
-        }
-    </script>
+    function update() {
+        bullets.children.each(b => { if (b.y < 0) b.destroy(); });
+        enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
+    }
+</script>
 </body>
 </html>
