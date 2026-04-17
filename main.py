@@ -21,27 +21,48 @@ def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. Estas listo soldado!.")
 from telebot import types  # Asegúrate de que esta línea esté arriba del todo
 
+# --- COMANDO /GAME CON MENÚ VISUAL ---
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    # Creamos el teclado con botones
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    
-    # Botón para el Juego 1
-    btn1 = types.InlineKeyboardButton("🎮 Jugar: Super Shooter 01", callback_data="play_shooter_01")
-    # Botón para el Juego 2
-    btn2 = types.InlineKeyboardButton("🚀 Jugar: Super Shooter 02 (PRO)", callback_data="play_shooter_02")
-    
-    markup.add(btn1, btn2)
-    
-    bot.send_message(message.chat.id, "🏅 **CAMPO DE ENTRENAMIENTO GUN4FUN**\nSelecciona una misión, soldado:", reply_markup=markup, parse_mode="Markdown")
+    # Enlaces RAW extraídos de tus archivos
+    url_img_1 = "https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada1.jpg"
+    url_img_2 = "https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada2.jpg"
 
-# Manejador para detectar qué botón han pulsado
-@bot.callback_query_handler(func=lambda call: call.data.startswith("play_"))
-def handle_game_selection(call):
-    if call.data == "play_shooter_01":
-        bot.send_game(call.message.chat.id, "shooter_01")
-    elif call.data == "play_shooter_02":
-        bot.send_game(call.message.chat.id, "shooter_02")
+    # --- ENVIAR JUEGO 1 ---
+    markup1 = types.InlineKeyboardMarkup()
+    # Importante: el callback_data debe coincidir con el nombre corto en BotFather
+    btn1 = types.InlineKeyboardButton("🎮 Jugar Misión 01", callback_data="shooter_01")
+    markup1.add(btn1)
+    
+    bot.send_photo(
+        message.chat.id, 
+        url_img_1, 
+        caption="🔹 **MISIÓN 01: ENTRENAMIENTO BÁSICO**\nPractica tu puntería con los objetivos móviles.", 
+        parse_mode="Markdown", 
+        reply_markup=markup1
+    )
+
+    # --- ENVIAR JUEGO 2 ---
+    markup2 = types.InlineKeyboardMarkup()
+    btn2 = types.InlineKeyboardButton("🚀 Jugar Misión 02 (PRO)", callback_data="shooter_02")
+    markup2.add(btn2)
+
+    bot.send_photo(
+        message.chat.id, 
+        url_img_2, 
+        caption="🔹 **MISIÓN 02: ASALTO TÁCTICO**\nEntrenamiento avanzado con motor Phaser 3.", 
+        parse_mode="Markdown", 
+        reply_markup=markup2
+    )
+
+# --- MANEJADORES DE APERTURA (Para que los botones funcionen) ---
+@bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter_01')
+def game1_callback(call):
+    bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v1/")
+
+@bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter_02')
+def game2_callback(call):
+    bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v2/")
     
     # Esto quita el "reloj de arena" del botón en Telegram
     bot.answer_callback_query(call.id)
