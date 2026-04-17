@@ -20,7 +20,7 @@ bot = telebot.TeleBot(TOKEN)
 def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy Gun4fun-game. Estoy listo.")
 
-if name == "__main__":
+if __name__ == "__main__":
     t = Thread(target=run)
     t.start()
     bot.polling(none_stop=True)
