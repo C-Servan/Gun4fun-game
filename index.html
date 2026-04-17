@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gun4fun Entrenamiento</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; color: white; font-family: 'Arial', sans-serif; text-align: center; overflow: hidden; touch-action: manipulation; }
+        #game-canvas { background: #333; border: 2px solid #555; display: block; margin: 0 auto; cursor: crosshair; }
+        #ui { padding: 10px; font-size: 20px; font-weight: bold; background: #000; }
+        #target { width: 60px; height: 60px; background: radial-gradient(circle, red 20%, white 20%, white 40%, red 40%, red 60%, white 60%, white 80%, red 80%); border-radius: 50%; position: absolute; }
+    </style>
+</head>
+<body>
+    <div id="ui">PUNTOS: <span id="score">0</span></div>
+    <div id="game-container" style="position: relative; width: 100vw; height: 90vh;">
+        <div id="target" onclick="shoot()"></div>
+    </div>
+
+    <script>
+        let score = 0;
+        const target = document.getElementById('target');
+        const scoreDisplay = document.getElementById('score');
+
+        function moveTarget() {
+            // Mueve el objetivo a una posición aleatoria
+            const x = Math.random() * (window.innerWidth - 80);
+            const y = Math.random() * (window.innerHeight - 150);
+            target.style.left = x + 'px';
+            target.style.top = y + 'px';
+        }
+
+        function shoot() {
+            score++;
+            scoreDisplay.innerText = score;
+            moveTarget();
+        }
+
+        // Iniciar el primer objetivo
+        moveTarget();
+    </script>
+</body>
+</html>
