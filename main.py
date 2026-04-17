@@ -20,7 +20,7 @@ bot = telebot.TeleBot(TOKEN)
 def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy Gun4fun-game. Estoy listo para los juegos.")
 
-if __name__ == "__main__":
+if name == "__main__":
     # Arranca el servidor web en un hilo aparte
     t = Thread(target=run)
     t.start()
