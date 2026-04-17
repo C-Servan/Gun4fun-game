@@ -18,7 +18,7 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "¡Hola! Soy Gun4fun-game. Estoy listo.")
+    bot.reply_to(message, "¡Hola! Soy el bot Instructor de Gun4fun. Estoy listo.")
 
 if __name__ == "__main__":
     t = Thread(target=run)
