@@ -18,8 +18,16 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "¡Hola! Soy el bot Instructor de Gun4fun. Estoy listo.")
+    bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. Estas listo soldado!.")
+@bot.message_handler(commands=['game'])
+def send_game(message):
+    # Cambia 'shooter1' por el "Short Name" que pusiste en BotFather
+    bot.send_game(message.chat.id, "shooter1")
 
+@bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter1')
+def game_callback(call):
+    # Aquí es donde pondremos el enlace al juego más adelante
+    bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/")
 if __name__ == "__main__":
     t = Thread(target=run)
     t.start()
