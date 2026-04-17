@@ -23,9 +23,8 @@ def send_welcome(message):
 def send_game(message):
     bot.send_game(message.chat.id, "shooter_01")
 
-@bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter1')
+@bot.callback_query_handler(func=lambda call: call.game_short_name == 'shooter_01')
 def game_callback(call):
-    # Aquí es donde pondremos el enlace al juego más adelante
     bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/")
 if __name__ == "__main__":
     t = Thread(target=run)
