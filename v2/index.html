@@ -18,7 +18,7 @@
         height: window.innerHeight,
         physics: { 
             default: 'arcade', 
-            arcade: { debug: false } // Ponlo en 'true' si quieres ver los cuadros verdes de colisión
+            arcade: { debug: false } // Ponlo en 'true' para ver las minúsculas cajas de colisión verdes
         },
         scene: { preload: preload, create: create, update: update }
     };
@@ -30,10 +30,10 @@
     let isFiring = false;
     let lastFired = 0;
 
-    // --- AJUSTES DE CALIBRACIÓN ---
+    // --- AJUSTES DE CALIBRACIÓN V2.5 ---
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
-    const FIRE_RATE = 300; // Cadencia reducida a la mitad (antes 150)
+    const FIRE_RATE = 450; // Cadencia ajustada (450ms)
 
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
@@ -49,11 +49,11 @@
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // JUGADOR: Ajuste de colisión al tronco del cuerpo (40% del ancho original)
+        // JUGADOR: Hitbox ultra reducida (20% del ancho)
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8);
         player.setCollideWorldBounds(true);
-        player.setBodySize(player.width * 0.4, player.height * 0.7, true); 
+        player.setBodySize(player.width * 0.2, player.height * 0.4, true); 
 
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
@@ -63,14 +63,14 @@
         hearts = this.add.group();
         actualizarCorazones.call(this);
 
-        // COLISIONES: Ahora mucho más estrictas
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, takeDamage, null, this);
         this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
 
-        this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
+        // Generador de enemigos
+        this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
 
-        // CONTROLES: Movimiento total
+        // CONTROLES
         this.input.on('pointerdown', (p) => { if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
@@ -85,7 +85,6 @@
             fireBullet.call(this);
             lastFired = time + FIRE_RATE;
         }
-
         bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
         enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
         enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
@@ -97,30 +96,46 @@
             b.setActive(true).setVisible(true);
             b.setScale(0.18); 
             b.body.velocity.y = -850;
-            // Bala ultra-fina para que tenga que impactar visualmente
             b.setBodySize(b.width * 0.2, b.height * 0.2, true);
         }
     }
 
-    function spawnEnemy() {
-        const x = Phaser.Math.Between(50, window.innerWidth - 50);
-        const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
-        const t = tipos[Math.floor(Math.random() * tipos.length)];
-        let enemy = enemies.create(x, -50, t).setScale(0.7);
-        
-        // ENEMIGOS: Colisión reducida al centro (50% del tamaño visual)
-        enemy.setBodySize(enemy.width * 0.5, enemy.height * 0.6, true);
-        
-        let v = (t === 'tigre') ? 420 : (t === 'serpiente' ? 180 : 220);
-        enemy.setVelocityY(v);
+    // --- GESTOR DE APARICIÓN (Aumenta soldados x3) ---
+    function spawnManager() {
+        // Siempre sale un enemigo (Tigre, Serpiente o Soldado)
+        const tiposBase = ['enemigo_soldado', 'tigre', 'serpiente'];
+        const t = tiposBase[Math.floor(Math.random() * tiposBase.length)];
+        spawnEnemy.call(this, t);
 
-        if (t === 'serpiente') {
-            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
+        // Si el elegido fue un soldado, o al azar, forzamos 2 soldados más para cumplir el x3
+        if (t === 'enemigo_soldado' || Math.random() > 0.7) {
+            spawnEnemy.call(this, 'enemigo_soldado');
+            spawnEnemy.call(this, 'enemigo_soldado');
         }
+    }
 
-        if (t === 'enemigo_soldado') {
+    function spawnEnemy(tipo) {
+        const x = Phaser.Math.Between(80, window.innerWidth - 80);
+        let enemy = enemies.create(x, -50, tipo).setScale(0.7);
+        
+        // HITBOX ENEMIGO: Muy reducida (25% del cuerpo)
+        enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.3, true);
+        
+        if (tipo === 'enemigo_soldado') {
+            enemy.setVelocityY(120); // Velocidad de bajada reducida
+            // Zigzag gigante (de lado a lado de la pantalla)
+            this.tweens.add({
+                targets: enemy,
+                x: { from: 50, to: window.innerWidth - 50 },
+                duration: 2500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            // Disparo enemigo
             this.time.addEvent({
-                delay: 1500,
+                delay: 1800,
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
@@ -133,6 +148,11 @@
                 },
                 loop: true
             });
+        } else if (tipo === 'tigre') {
+            enemy.setVelocityY(420);
+        } else if (tipo === 'serpiente') {
+            enemy.setVelocityY(180);
+            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
         }
     }
 
@@ -165,11 +185,9 @@
         let ranking = getRanking();
         let text = `MISIÓN FALLIDA\n\nScore: ${score}\n\nTOP 5:\n`;
         ranking.forEach((s, i) => { text += `${i+1}. ${s} pts\n`; });
-
         this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
             fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
         }).setOrigin(0.5);
-
         this.time.delayedCall(4000, () => location.reload());
     }
 
