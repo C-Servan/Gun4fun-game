@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
-    
     <meta property="og:title" content="Gun4Fun: Jungle Fury">
-    <meta property="og:description" content="Misión 2: Operación Jungle Fury. Entrenamiento táctico avanzado.">
+    <meta property="og:description" content="Misión 2: Operación Jungle Fury.">
     <meta property="og:image" content="https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada2.jpg">
     
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
@@ -15,57 +14,54 @@
 </head>
 <body>
 <script>
-    // ==========================================
-    // CONFIGURACIÓN E ID: shooter_02
-    // ==========================================
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-        physics: { 
-            default: 'arcade', 
-            arcade: { debug: false } 
-        },
+        physics: { default: 'arcade', arcade: { debug: false } },
         scene: { preload: preload, create: create, update: update }
     };
 
     const game = new Phaser.Game(config);
-    let player, enemies, bullets, enemyBullets;
-    let score = 0, scoreText, missionText, hearts;
-    let lives = 3;
-    let isFiring = false;
-    let lastFired = 0;
+    let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, hearts, lives = 3;
+    let isFiring = false, lastFired = 0;
+    
+    // --- NUEVAS VARIABLES DE SONIDO ---
+    let bgMusic;
+    let musicStarted = false;
 
-    // AJUSTES V2.5
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
     const FIRE_RATE = 450; 
 
     function preload() {
-        // Carga desde tu repositorio
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
         this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
         this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
-        this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
+        this.load.image('bala_ro_ja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
         this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
+        
+        // --- CARGA DE AUDIO ---
+        this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     }
 
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
+        // Preparamos la música (volumen al 50% y en bucle)
+        bgMusic = this.sound.add('musica_fondo', { volume: 0.5, loop: true });
+
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8).setCollideWorldBounds(true);
-        // Hitbox ultra-precisa (20%)
         player.setBodySize(player.width * 0.2, player.height * 0.4, true); 
 
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // UI TÁCTICA ACTUALIZADA
         scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
         missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
 
@@ -78,7 +74,17 @@
 
         this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
 
-        this.input.on('pointerdown', (p) => { if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; });
+        // --- CONTROL DE DISPARO Y ACTIVACIÓN DE MÚSICA ---
+        this.input.on('pointerdown', (p) => { 
+            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
+                isFiring = true; 
+                // La música arranca al primer toque
+                if (!musicStarted) {
+                    bgMusic.play();
+                    musicStarted = true;
+                }
+            }
+        });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) player.x = p.x;
@@ -90,7 +96,6 @@
             fireBullet.call(this);
             lastFired = time + FIRE_RATE;
         }
-        // Limpieza de memoria
         bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
         enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
         enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
@@ -107,10 +112,8 @@
 
     function spawnManager() {
         const tiposBase = ['enemigo_soldado', 'tigre', 'serpiente'];
-        const t = tiposBase[Phaser.Math.Between(0, 2)];
+        const t = tiposBase[Math.floor(Math.random() * 3)];
         spawnEnemy.call(this, t);
-
-        // Multiplicador de dificultad (x3 soldados)
         if (t === 'enemigo_soldado' || Math.random() > 0.7) {
             spawnEnemy.call(this, 'enemigo_soldado');
             spawnEnemy.call(this, 'enemigo_soldado');
@@ -129,16 +132,12 @@
                 x: { from: 50, to: window.innerWidth - 50 },
                 duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
-
             this.time.addEvent({
                 delay: 1800,
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
-                        if (eb) { 
-                            eb.setScale(0.18).setVelocityY(480); 
-                            eb.setBodySize(eb.width * 0.2, eb.height * 0.2, true);
-                        }
+                        if (eb) { eb.setScale(0.18).setVelocityY(480); eb.setBodySize(eb.width * 0.2, eb.height * 0.2, true); }
                     }
                 },
                 loop: true
@@ -157,7 +156,10 @@
         actualizarCorazones.call(this);
         player.setTint(0xff0000);
         this.time.delayedCall(200, () => player.clearTint());
-        if (lives <= 0) endGame.call(this);
+        if (lives <= 0) {
+            if (bgMusic) bgMusic.stop(); // Paramos música al morir
+            endGame.call(this);
+        }
     }
 
     function actualizarCorazones() {

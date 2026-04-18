@@ -39,7 +39,7 @@ def list_games(message):
     bot.send_game(message.chat.id, "shooter_01")
 
     # Misión 02
-    bot.send_message(message.chat.id, "🚀 **MISIÓN 02: ASALTO TÁCTICO (PRO)**", parse_mode="Markdown")
+    bot.send_message(message.chat.id, "🎯 **MISIÓN 2: OPERACIÓN JUNGLE FURY**", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_02")
 
 # Manejador de los botones de "Play" de los juegos
