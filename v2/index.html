@@ -2,13 +2,12 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Operación Jungle Fury</title>
+    <title>Gun4Fun: Jungle Fury</title>
     
-    <meta property="og:title" content="Gun4Fun: Misión 2">
-    <meta property="og:description" content="Operación Jungle Fury - ¡Sobrevive a la emboscada en la selva!">
+    <meta property="og:title" content="Gun4Fun: Jungle Fury">
+    <meta property="og:description" content="Misión 2: Operación Jungle Fury. Entrenamiento táctico avanzado.">
     <meta property="og:image" content="https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada2.jpg">
-    <meta name="twitter:card" content="summary_large_image">
-
+    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style> 
         body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
@@ -17,7 +16,7 @@
 <body>
 <script>
     // ==========================================
-    // 1. CONFIGURACIÓN
+    // CONFIGURACIÓN E ID: shooter_02
     // ==========================================
     const config = {
         type: Phaser.AUTO,
@@ -32,17 +31,18 @@
 
     const game = new Phaser.Game(config);
     let player, enemies, bullets, enemyBullets;
-    let score = 0, scoreText, hearts;
+    let score = 0, scoreText, missionText, hearts;
     let lives = 3;
     let isFiring = false;
     let lastFired = 0;
 
-    // --- AJUSTES DE CALIBRACIÓN V2.5 ---
+    // AJUSTES V2.5
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
     const FIRE_RATE = 450; 
 
     function preload() {
+        // Carga desde tu repositorio
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
         this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
@@ -50,24 +50,24 @@
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
         this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
-        this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png'); 
+        this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
     }
 
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
-        player.setScale(0.8);
-        player.setCollideWorldBounds(true);
+        player.setScale(0.8).setCollideWorldBounds(true);
+        // Hitbox ultra-precisa (20%)
         player.setBodySize(player.width * 0.2, player.height * 0.4, true); 
 
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // UI ACTUALIZADA
+        // UI TÁCTICA ACTUALIZADA
         scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-        this.add.text(20, 50, 'OPERACIÓN JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', stroke: '#000', strokeThickness: 2 });
+        missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
 
         hearts = this.add.group();
         actualizarCorazones.call(this);
@@ -81,9 +81,7 @@
         this.input.on('pointerdown', (p) => { if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
-            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                player.x = p.x;
-            }
+            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) player.x = p.x;
         });
     }
 
@@ -92,6 +90,7 @@
             fireBullet.call(this);
             lastFired = time + FIRE_RATE;
         }
+        // Limpieza de memoria
         bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
         enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
         enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
@@ -100,8 +99,7 @@
     function fireBullet() {
         let b = bullets.get(player.x, player.y - 45);
         if (b) {
-            b.setActive(true).setVisible(true);
-            b.setScale(0.18); 
+            b.setActive(true).setVisible(true).setScale(0.18);
             b.body.velocity.y = -850;
             b.setBodySize(b.width * 0.2, b.height * 0.2, true);
         }
@@ -109,9 +107,10 @@
 
     function spawnManager() {
         const tiposBase = ['enemigo_soldado', 'tigre', 'serpiente'];
-        const t = tiposBase[Math.floor(Math.random() * tiposBase.length)];
+        const t = tiposBase[Phaser.Math.Between(0, 2)];
         spawnEnemy.call(this, t);
 
+        // Multiplicador de dificultad (x3 soldados)
         if (t === 'enemigo_soldado' || Math.random() > 0.7) {
             spawnEnemy.call(this, 'enemigo_soldado');
             spawnEnemy.call(this, 'enemigo_soldado');
@@ -124,14 +123,11 @@
         enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.3, true);
         
         if (tipo === 'enemigo_soldado') {
-            enemy.setVelocityY(120); 
+            enemy.setVelocityY(120);
             this.tweens.add({
                 targets: enemy,
                 x: { from: 50, to: window.innerWidth - 50 },
-                duration: 2500,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
+                duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
 
             this.time.addEvent({
@@ -140,8 +136,7 @@
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
                         if (eb) { 
-                            eb.setScale(0.18); 
-                            eb.setVelocityY(480); 
+                            eb.setScale(0.18).setVelocityY(480); 
                             eb.setBodySize(eb.width * 0.2, eb.height * 0.2, true);
                         }
                     }
@@ -173,8 +168,7 @@
     }
 
     function hitEnemy(b, e) {
-        b.destroy(); 
-        e.destroy();
+        b.destroy(); e.destroy();
         score += 10;
         scoreText.setText('BAJAS: ' + score);
     }
@@ -183,8 +177,7 @@
         this.physics.pause();
         saveScore(score);
         let ranking = getRanking();
-        // MENSAJE FINAL PERSONALIZADO
-        let text = `OPERACIÓN FALLIDA\n\nScore: ${score}\n\nTOP 5:\n`;
+        let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n`;
         ranking.forEach((s, i) => { text += `${i+1}. ${s} pts\n`; });
         this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
             fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
