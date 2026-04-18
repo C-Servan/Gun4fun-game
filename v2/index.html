@@ -9,12 +9,17 @@
 </head>
 <body>
 <script>
-    // --- CONFIGURACIÓN ---
+    // ==========================================
+    // 1. CONFIGURACIÓN
+    // ==========================================
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-        physics: { default: 'arcade', arcade: { debug: false } },
+        physics: { 
+            default: 'arcade', 
+            arcade: { debug: false } // Cambia a true si quieres ver las cajas de colisión
+        },
         scene: { preload: preload, create: create, update: update }
     };
 
@@ -27,7 +32,7 @@
 
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
-    const FIRE_RATE = 150; // Velocidad de disparo (más bajo = más rápido)
+    const FIRE_RATE = 150; 
 
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
@@ -41,62 +46,58 @@
     }
 
     function create() {
-        // Fondo
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // Jugador
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8);
         player.setCollideWorldBounds(true);
+        // Ajustamos la caja de colisión del jugador para que sea más justa
+        player.setBodySize(player.width * 0.6, player.height * 0.8);
 
-        // Grupos
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // UI: Puntuación y Vidas
         scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
         hearts = this.add.group();
         actualizarCorazones.call(this);
 
-        // Colisiones
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, takeDamage, null, this);
         this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
 
-        // Spawn de enemigos
         this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // --- CONTROLES MEJORADOS ---
-        this.input.on('pointerdown', (p) => { 
-            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; 
-        });
+        // --- MOVIMIENTO CORREGIDO (Borde a Borde) ---
+        this.input.on('pointerdown', (p) => { if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                player.x = p.x; // Seguimiento directo del dedo
+                // Mapeo directo: el centro del jugador va donde esté el dedo
+                player.x = p.x;
             }
         });
     }
 
     function update(time) {
-        // Lógica de disparo automático
         if (isFiring && time > lastFired) {
             fireBullet.call(this);
             lastFired = time + FIRE_RATE;
         }
 
-        // Limpiar balas y enemigos fuera de pantalla
-        bullets.children.each(b => { if (b.active && b.y < 0) b.destroy(); });
-        enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight) eb.destroy(); });
-        enemies.children.each(e => { if (e.active && e.y > window.innerHeight) e.destroy(); });
+        bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
+        enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
+        enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
     }
 
     function fireBullet() {
-        let b = bullets.get(player.x, player.y - 40);
+        let b = bullets.get(player.x, player.y - 45);
         if (b) {
             b.setActive(true).setVisible(true);
-            b.body.velocity.y = -700;
+            b.setScale(0.15); // --- BALAS PEQUEÑAS ---
+            b.body.velocity.y = -800;
+            // Ajuste de colisión de la bala (muy estrecha)
+            b.setBodySize(b.width * 0.3, b.height * 0.3);
         }
     }
 
@@ -104,10 +105,8 @@
         obj.destroy();
         lives--;
         actualizarCorazones.call(this);
-
         player.setTint(0xff0000);
         this.time.delayedCall(200, () => player.clearTint());
-
         if (lives <= 0) endGame.call(this);
     }
 
@@ -124,6 +123,9 @@
         const t = tipos[Math.floor(Math.random() * tipos.length)];
         let enemy = enemies.create(x, -50, t).setScale(0.7);
         
+        // Ajuste de Hitbox para enemigos (ajustado a su cuerpo real)
+        enemy.setBodySize(enemy.width * 0.7, enemy.height * 0.7);
+        
         let v = (t === 'tigre') ? 420 : (t === 'serpiente' ? 180 : 220);
         enemy.setVelocityY(v);
 
@@ -137,7 +139,11 @@
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
-                        if (eb) { eb.setVelocityY(450); eb.setTint(0xff0000); }
+                        if (eb) { 
+                            eb.setScale(0.15); // Balas enemigas también pequeñas
+                            eb.setVelocityY(450); 
+                            eb.setBodySize(eb.width * 0.3, eb.height * 0.3);
+                        }
                     }
                 },
                 loop: true
@@ -146,7 +152,8 @@
     }
 
     function hitEnemy(b, e) {
-        b.destroy(); e.destroy();
+        b.destroy(); 
+        e.destroy();
         score += 10;
         scoreText.setText('BAJAS: ' + score);
     }
@@ -155,11 +162,10 @@
         this.physics.pause();
         saveScore(score);
         let ranking = getRanking();
-        
-        let text = `MISIÓN FALLIDA\n\nTu Score: ${score}\n\nTOP RANKING:\n`;
+        let text = `MISIÓN FALLIDA\n\nScore: ${score}\n\nTOP 5:\n`;
         ranking.forEach((s, i) => { text += `${i+1}. ${s} pts\n`; });
 
-        let info = this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
+        this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
             fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
         }).setOrigin(0.5);
 
