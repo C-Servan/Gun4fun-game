@@ -9,9 +9,7 @@
 </head>
 <body>
 <script>
-    // ==========================================
-    // 1. CONFIGURACIÓN Y VARIABLES
-    // ==========================================
+    // --- CONFIGURACIÓN ---
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
@@ -22,18 +20,15 @@
 
     const game = new Phaser.Game(config);
     let player, enemies, bullets, enemyBullets;
-    let score = 0, scoreText, hearts = [];
+    let score = 0, scoreText, hearts;
     let lives = 3;
     let isFiring = false;
     let lastFired = 0;
 
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
-    const FIRE_RATE = 200; // Milisegundos entre balas (200 = 5 balas por segundo)
+    const FIRE_RATE = 150; // Velocidad de disparo (más bajo = más rápido)
 
-    // ==========================================
-    // 2. CARGA DE ASSETS
-    // ==========================================
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
@@ -42,89 +37,85 @@
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
         this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
-        // Usamos un dibujo básico de Phaser para el corazón si no tienes imagen
         this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png'); 
     }
 
-    // ==========================================
-    // 3. CREACIÓN
-    // ==========================================
     function create() {
+        // Fondo
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
         // Jugador
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
-        player.setScale(0.8).setCollideWorldBounds(true);
+        player.setScale(0.8);
+        player.setCollideWorldBounds(true);
 
         // Grupos
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // HUD: Puntuación
+        // UI: Puntuación y Vidas
         scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-
-        // HUD: Vidas (Corazones)
-        for (let i = 0; i < 3; i++) {
-            let h = this.add.image(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
-            hearts.push(h);
-        }
+        hearts = this.add.group();
+        actualizarCorazones.call(this);
 
         // Colisiones
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, takeDamage, null, this);
         this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
 
-        // Eventos
+        // Spawn de enemigos
         this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // --- CONTROLES MÓVIL ---
+        // --- CONTROLES MEJORADOS ---
         this.input.on('pointerdown', (p) => { 
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; 
         });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
-            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) player.x = p.x;
+            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
+                player.x = p.x; // Seguimiento directo del dedo
+            }
         });
     }
 
-    // ==========================================
-    // 4. LÓGICA DE JUEGO
-    // ==========================================
-
     function update(time) {
-        // Disparo Automático
+        // Lógica de disparo automático
         if (isFiring && time > lastFired) {
             fireBullet.call(this);
             lastFired = time + FIRE_RATE;
         }
 
-        // Limpieza
-        bullets.children.each(b => { if (b.y < 0) b.destroy(); });
-        enemyBullets.children.each(eb => { if (eb.y > window.innerHeight) eb.destroy(); });
-        enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
+        // Limpiar balas y enemigos fuera de pantalla
+        bullets.children.each(b => { if (b.active && b.y < 0) b.destroy(); });
+        enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight) eb.destroy(); });
+        enemies.children.each(e => { if (e.active && e.y > window.innerHeight) e.destroy(); });
     }
 
     function fireBullet() {
         let b = bullets.get(player.x, player.y - 40);
         if (b) {
             b.setActive(true).setVisible(true);
-            b.setVelocityY(-700);
+            b.body.velocity.y = -700;
         }
     }
 
     function takeDamage(p, obj) {
         obj.destroy();
         lives--;
-        
-        // Quitar un corazón visualmente
-        if (hearts[lives]) hearts[lives].setVisible(false);
+        actualizarCorazones.call(this);
 
-        // Efecto visual de daño
         player.setTint(0xff0000);
         this.time.delayedCall(200, () => player.clearTint());
 
         if (lives <= 0) endGame.call(this);
+    }
+
+    function actualizarCorazones() {
+        hearts.clear(true, true);
+        for (let i = 0; i < lives; i++) {
+            hearts.create(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
+        }
     }
 
     function spawnEnemy() {
@@ -133,13 +124,12 @@
         const t = tipos[Math.floor(Math.random() * tipos.length)];
         let enemy = enemies.create(x, -50, t).setScale(0.7);
         
-        let v = 200;
-        if (t === 'tigre') v = 400;
-        if (t === 'serpiente') {
-            v = 180;
-            this.tweens.add({ targets: enemy, x: enemy.x + 60, duration: 600, yoyo: true, repeat: -1 });
-        }
+        let v = (t === 'tigre') ? 420 : (t === 'serpiente' ? 180 : 220);
         enemy.setVelocityY(v);
+
+        if (t === 'serpiente') {
+            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
+        }
 
         if (t === 'enemigo_soldado') {
             this.time.addEvent({
@@ -169,28 +159,23 @@
         let text = `MISIÓN FALLIDA\n\nTu Score: ${score}\n\nTOP RANKING:\n`;
         ranking.forEach((s, i) => { text += `${i+1}. ${s} pts\n`; });
 
-        this.add.text(window.innerWidth/2 - 130, window.innerHeight/2 - 100, text, { 
-            fontSize: '22px', fill: '#ff0000', backgroundColor: '#000', padding: 20, align: 'center'
-        });
+        let info = this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
+            fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
+        }).setOrigin(0.5);
 
         this.time.delayedCall(4000, () => location.reload());
     }
 
-    // ==========================================
-    // 5. SISTEMA DE RANKING (Local Storage)
-    // ==========================================
     function saveScore(newScore) {
         let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
         scores.push(newScore);
-        scores.sort((a, b) => b - a); // Ordenar de mayor a menor
-        scores = scores.slice(0, 5);  // Guardar solo los mejores 5
-        localStorage.setItem('gun4fun_ranking', JSON.stringify(scores));
+        scores.sort((a, b) => b - a);
+        localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
     }
 
     function getRanking() {
         return JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
     }
-
 </script>
 </body>
 </html>
