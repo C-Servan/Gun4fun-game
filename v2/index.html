@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } </style>
+    <style> 
+        body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
+    </style>
 </head>
 <body>
 <script>
+    // ==========================================
+    // 1. CONFIGURACIÓN Y VARIABLES GLOBALES
+    // ==========================================
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
@@ -17,10 +23,13 @@
     const game = new Phaser.Game(config);
     let player, enemies, bullets, enemyBullets, score = 0, scoreText;
     
-    // --- NUEVAS CONSTANTES TÁCTICAS ---
-    const CONTROL_PANEL_HEIGHT = 120; // Espacio para el dedo abajo
-    const PLAYER_V_OFFSET = 160;     // Cuánto subimos al jugador desde el fondo
+    // --- AJUSTES DE DISEÑO TÁCTICO ---
+    const CONTROL_PANEL_HEIGHT = 250; // Área grande para el dedo (Invisible)
+    const PLAYER_V_OFFSET = 320;     // Altura del jugador (Doble que antes para no taparlo)
 
+    // ==========================================
+    // 2. CARGA DE ASSETS (Imágenes)
+    // ==========================================
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
@@ -28,56 +37,65 @@
         this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
-        // Asegúrate de tener esta imagen en tus assets o cámbiala por un círculo rojo
         this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png'); 
     }
 
+    // ==========================================
+    // 3. CREACIÓN DE LA ESCENA
+    // ==========================================
     function create() {
-        // Fondo
+        // --- Fondo ---
         let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla');
         bg.setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // Área de Control Visual (La barra de abajo)
+        // --- Zona de Control Táctico (Invisible) ---
         let controlBar = this.add.graphics();
-        controlBar.fillStyle(0x000000, 0.6); // Negro semitransparente
+        controlBar.fillStyle(0x000000, 0.0); // Transparencia total (0.0)
         controlBar.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
-        this.add.text(window.innerWidth/2 - 70, window.innerHeight - 40, 'CONTROL TÁCTICO', { fontSize: '14px', fill: '#aaa' });
 
-        // El Jugador (Ahora más arriba)
+        // --- Jugador ---
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8);
         player.setCollideWorldBounds(true);
 
-        // Grupos
+        // --- Grupos de Objetos ---
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // Generador de enemigos
+        // --- Eventos Temporizados (Enemigos) ---
         this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // Marcador
-        scoreText = this.add.text(16, 16, 'Bajas: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+        // --- Interfaz (HUD) ---
+        scoreText = this.add.text(16, 16, 'Bajas: 0', { 
+            fontSize: '24px', 
+            fill: '#fff', 
+            stroke: '#000', 
+            strokeThickness: 4 
+        });
 
-        // Colisiones
+        // --- Sistema de Colisiones ---
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, gameOver, null, this);
-        this.physics.add.overlap(player, enemyBullets, gameOver, null, this); // ¡Las balas rojas te matan!
+        this.physics.add.overlap(player, enemyBullets, gameOver, null, this);
         
-        // --- NUEVOS CONTROLES ---
+        // --- Lógica de Controles ---
         this.input.on('pointermove', (pointer) => {
-            // Solo movemos al jugador si el dedo está en la zona inferior
             if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                player.x = pointer.x;
+                player.x = pointer.x; // Movimiento horizontal
             }
         });
 
         this.input.on('pointerdown', (pointer) => {
             if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                fireAction.call(this);
+                fireAction.call(this); // Disparar al tocar la zona
             }
         });
     }
+
+    // ==========================================
+    // 4. FUNCIONES DE LÓGICA (IA y Combate)
+    // ==========================================
 
     function spawnEnemy() {
         const x = Phaser.Math.Between(50, window.innerWidth - 50);
@@ -87,15 +105,16 @@
         let enemy = enemies.create(x, -50, tipoAleatorio);
         enemy.setScale(0.7);
         
+        // --- IA de Velocidad y Movimiento ---
         let velocidad = 200;
-        if (tipoAleatorio === 'tigre') velocidad = 380;
+        if (tipoAleatorio === 'tigre') velocidad = 380; // El tigre corre más
         if (tipoAleatorio === 'serpiente') {
             velocidad = 180;
-            // Movimiento especial en zigzag para la serpiente
+            // Movimiento Zig-Zag
             this.tweens.add({
                 targets: enemy,
-                x: enemy.x + 50,
-                duration: 500,
+                x: enemy.x + 60,
+                duration: 600,
                 yoyo: true,
                 repeat: -1
             });
@@ -103,16 +122,16 @@
         
         enemy.setVelocityY(velocidad);
 
-        // --- DISPARO ENEMIGO (Solo los soldados enemigos disparan) ---
+        // --- IA de Disparo (Solo Soldados) ---
         if (tipoAleatorio === 'enemigo_soldado') {
             this.time.addEvent({
-                delay: 1500,
+                delay: 1500, // Dispara cada 1.5 seg
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
                         if (eb) {
-                            eb.setVelocityY(400);
-                            eb.setTint(0xff0000); // Por si no tienes la imagen, que se vea roja
+                            eb.setVelocityY(420);
+                            eb.setTint(0xff0000); 
                         }
                     }
                 },
@@ -125,7 +144,7 @@
         let bullet = bullets.get(player.x, player.y - 40);
         if (bullet) {
             bullet.setActive(true).setVisible(true);
-            bullet.setVelocityY(-600);
+            bullet.setVelocityY(-650); // Velocidad de tu bala
         }
     }
 
@@ -138,15 +157,22 @@
 
     function gameOver() {
         this.physics.pause();
-        player.setTint(0xff0000);
+        player.setTint(0xff0000); // El jugador se pone rojo
         this.add.text(window.innerWidth/2 - 120, window.innerHeight/2, 'MISIÓN FALLIDA', { 
             fontSize: '32px', fill: '#ff0000', backgroundColor: '#000', padding: 10 
         });
         
-        this.time.delayedCall(2000, () => { this.scene.restart(); score = 0; });
+        this.time.delayedCall(2000, () => { 
+            this.scene.restart(); 
+            score = 0; 
+        });
     }
 
+    // ==========================================
+    // 5. BUCLE DE ACTUALIZACIÓN (Limpieza)
+    // ==========================================
     function update() {
+        // Eliminar objetos que salen de pantalla para no saturar el juego
         bullets.children.each(b => { if (b.y < 0) b.destroy(); });
         enemyBullets.children.each(eb => { if (eb.y > window.innerHeight) eb.destroy(); });
         enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
