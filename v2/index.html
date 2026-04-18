@@ -10,7 +10,7 @@
 <body>
 <script>
     // ==========================================
-    // 1. CONFIGURACIÓN Y VARIABLES GLOBALES
+    // 1. CONFIGURACIÓN Y VARIABLES
     // ==========================================
     const config = {
         type: Phaser.AUTO,
@@ -21,14 +21,18 @@
     };
 
     const game = new Phaser.Game(config);
-    let player, enemies, bullets, enemyBullets, score = 0, scoreText;
-    
-    // --- AJUSTES DE DISEÑO TÁCTICO ---
-    const CONTROL_PANEL_HEIGHT = 250; // Área grande para el dedo (Invisible)
-    const PLAYER_V_OFFSET = 320;     // Altura del jugador (Doble que antes para no taparlo)
+    let player, enemies, bullets, enemyBullets;
+    let score = 0, scoreText, hearts = [];
+    let lives = 3;
+    let isFiring = false;
+    let lastFired = 0;
+
+    const CONTROL_PANEL_HEIGHT = 250; 
+    const PLAYER_V_OFFSET = 320;     
+    const FIRE_RATE = 200; // Milisegundos entre balas (200 = 5 balas por segundo)
 
     // ==========================================
-    // 2. CARGA DE ASSETS (Imágenes)
+    // 2. CARGA DE ASSETS
     // ==========================================
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
@@ -37,102 +41,113 @@
         this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
-        this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png'); 
+        this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
+        // Usamos un dibujo básico de Phaser para el corazón si no tienes imagen
+        this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png'); 
     }
 
     // ==========================================
-    // 3. CREACIÓN DE LA ESCENA
+    // 3. CREACIÓN
     // ==========================================
     function create() {
-        // --- Fondo ---
-        let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla');
-        bg.setDisplaySize(window.innerWidth, window.innerHeight);
+        this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // --- Zona de Control Táctico (Invisible) ---
-        let controlBar = this.add.graphics();
-        controlBar.fillStyle(0x000000, 0.0); // Transparencia total (0.0)
-        controlBar.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
-
-        // --- Jugador ---
+        // Jugador
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
-        player.setScale(0.8);
-        player.setCollideWorldBounds(true);
+        player.setScale(0.8).setCollideWorldBounds(true);
 
-        // --- Grupos de Objetos ---
+        // Grupos
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // --- Eventos Temporizados (Enemigos) ---
+        // HUD: Puntuación
+        scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+
+        // HUD: Vidas (Corazones)
+        for (let i = 0; i < 3; i++) {
+            let h = this.add.image(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
+            hearts.push(h);
+        }
+
+        // Colisiones
+        this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
+        this.physics.add.overlap(player, enemies, takeDamage, null, this);
+        this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
+
+        // Eventos
         this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // --- Interfaz (HUD) ---
-        scoreText = this.add.text(16, 16, 'Bajas: 0', { 
-            fontSize: '24px', 
-            fill: '#fff', 
-            stroke: '#000', 
-            strokeThickness: 4 
+        // --- CONTROLES MÓVIL ---
+        this.input.on('pointerdown', (p) => { 
+            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; 
         });
-
-        // --- Sistema de Colisiones ---
-        this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
-        this.physics.add.overlap(player, enemies, gameOver, null, this);
-        this.physics.add.overlap(player, enemyBullets, gameOver, null, this);
-        
-        // --- Lógica de Controles ---
-        this.input.on('pointermove', (pointer) => {
-            if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                player.x = pointer.x; // Movimiento horizontal
-            }
-        });
-
-        this.input.on('pointerdown', (pointer) => {
-            if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                fireAction.call(this); // Disparar al tocar la zona
-            }
+        this.input.on('pointerup', () => { isFiring = false; });
+        this.input.on('pointermove', (p) => {
+            if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) player.x = p.x;
         });
     }
 
     // ==========================================
-    // 4. FUNCIONES DE LÓGICA (IA y Combate)
+    // 4. LÓGICA DE JUEGO
     // ==========================================
+
+    function update(time) {
+        // Disparo Automático
+        if (isFiring && time > lastFired) {
+            fireBullet.call(this);
+            lastFired = time + FIRE_RATE;
+        }
+
+        // Limpieza
+        bullets.children.each(b => { if (b.y < 0) b.destroy(); });
+        enemyBullets.children.each(eb => { if (eb.y > window.innerHeight) eb.destroy(); });
+        enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
+    }
+
+    function fireBullet() {
+        let b = bullets.get(player.x, player.y - 40);
+        if (b) {
+            b.setActive(true).setVisible(true);
+            b.setVelocityY(-700);
+        }
+    }
+
+    function takeDamage(p, obj) {
+        obj.destroy();
+        lives--;
+        
+        // Quitar un corazón visualmente
+        if (hearts[lives]) hearts[lives].setVisible(false);
+
+        // Efecto visual de daño
+        player.setTint(0xff0000);
+        this.time.delayedCall(200, () => player.clearTint());
+
+        if (lives <= 0) endGame.call(this);
+    }
 
     function spawnEnemy() {
         const x = Phaser.Math.Between(50, window.innerWidth - 50);
         const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
-        const tipoAleatorio = tipos[Math.floor(Math.random() * tipos.length)];
+        const t = tipos[Math.floor(Math.random() * tipos.length)];
+        let enemy = enemies.create(x, -50, t).setScale(0.7);
         
-        let enemy = enemies.create(x, -50, tipoAleatorio);
-        enemy.setScale(0.7);
-        
-        // --- IA de Velocidad y Movimiento ---
-        let velocidad = 200;
-        if (tipoAleatorio === 'tigre') velocidad = 380; // El tigre corre más
-        if (tipoAleatorio === 'serpiente') {
-            velocidad = 180;
-            // Movimiento Zig-Zag
-            this.tweens.add({
-                targets: enemy,
-                x: enemy.x + 60,
-                duration: 600,
-                yoyo: true,
-                repeat: -1
-            });
+        let v = 200;
+        if (t === 'tigre') v = 400;
+        if (t === 'serpiente') {
+            v = 180;
+            this.tweens.add({ targets: enemy, x: enemy.x + 60, duration: 600, yoyo: true, repeat: -1 });
         }
-        
-        enemy.setVelocityY(velocidad);
+        enemy.setVelocityY(v);
 
-        // --- IA de Disparo (Solo Soldados) ---
-        if (tipoAleatorio === 'enemigo_soldado') {
+        if (t === 'enemigo_soldado') {
             this.time.addEvent({
-                delay: 1500, // Dispara cada 1.5 seg
+                delay: 1500,
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
-                        if (eb) {
-                            eb.setVelocityY(420);
-                            eb.setTint(0xff0000); 
-                        }
+                        if (eb) { eb.setVelocityY(450); eb.setTint(0xff0000); }
                     }
                 },
                 loop: true
@@ -140,43 +155,42 @@
         }
     }
 
-    function fireAction() {
-        let bullet = bullets.get(player.x, player.y - 40);
-        if (bullet) {
-            bullet.setActive(true).setVisible(true);
-            bullet.setVelocityY(-650); // Velocidad de tu bala
-        }
-    }
-
-    function hitEnemy(bullet, enemy) {
-        bullet.destroy();
-        enemy.destroy();
+    function hitEnemy(b, e) {
+        b.destroy(); e.destroy();
         score += 10;
-        scoreText.setText('Bajas: ' + score);
+        scoreText.setText('BAJAS: ' + score);
     }
 
-    function gameOver() {
+    function endGame() {
         this.physics.pause();
-        player.setTint(0xff0000); // El jugador se pone rojo
-        this.add.text(window.innerWidth/2 - 120, window.innerHeight/2, 'MISIÓN FALLIDA', { 
-            fontSize: '32px', fill: '#ff0000', backgroundColor: '#000', padding: 10 
-        });
+        saveScore(score);
+        let ranking = getRanking();
         
-        this.time.delayedCall(2000, () => { 
-            this.scene.restart(); 
-            score = 0; 
+        let text = `MISIÓN FALLIDA\n\nTu Score: ${score}\n\nTOP RANKING:\n`;
+        ranking.forEach((s, i) => { text += `${i+1}. ${s} pts\n`; });
+
+        this.add.text(window.innerWidth/2 - 130, window.innerHeight/2 - 100, text, { 
+            fontSize: '22px', fill: '#ff0000', backgroundColor: '#000', padding: 20, align: 'center'
         });
+
+        this.time.delayedCall(4000, () => location.reload());
     }
 
     // ==========================================
-    // 5. BUCLE DE ACTUALIZACIÓN (Limpieza)
+    // 5. SISTEMA DE RANKING (Local Storage)
     // ==========================================
-    function update() {
-        // Eliminar objetos que salen de pantalla para no saturar el juego
-        bullets.children.each(b => { if (b.y < 0) b.destroy(); });
-        enemyBullets.children.each(eb => { if (eb.y > window.innerHeight) eb.destroy(); });
-        enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
+    function saveScore(newScore) {
+        let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
+        scores.push(newScore);
+        scores.sort((a, b) => b - a); // Ordenar de mayor a menor
+        scores = scores.slice(0, 5);  // Guardar solo los mejores 5
+        localStorage.setItem('gun4fun_ranking', JSON.stringify(scores));
     }
+
+    function getRanking() {
+        return JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
+    }
+
 </script>
 </body>
 </html>
