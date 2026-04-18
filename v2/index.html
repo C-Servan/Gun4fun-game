@@ -2,7 +2,7 @@
 <html>
 <head>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; } </style>
+    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } </style>
 </head>
 <body>
 <script>
@@ -15,45 +15,68 @@
     };
 
     const game = new Phaser.Game(config);
-    let player, enemies, bullets, score = 0, scoreText;
+    let player, enemies, bullets, enemyBullets, score = 0, scoreText;
+    
+    // --- NUEVAS CONSTANTES TÁCTICAS ---
+    const CONTROL_PANEL_HEIGHT = 120; // Espacio para el dedo abajo
+    const PLAYER_V_OFFSET = 160;     // Cuánto subimos al jugador desde el fondo
 
     function preload() {
-        // Fondos y personajes - Asegúrate de que los nombres coincidan con tus archivos en assets
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
         this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
         this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
+        // Asegúrate de tener esta imagen en tus assets o cámbiala por un círculo rojo
+        this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png'); 
     }
 
     function create() {
-        // Fondo de jungla estirado para cubrir la pantalla
+        // Fondo
         let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla');
         bg.setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // El Soldado Gun4fun
-        player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - 80, 'soldado');
-        player.setScale(0.8); // Ajusta el tamaño según tu imagen
+        // Área de Control Visual (La barra de abajo)
+        let controlBar = this.add.graphics();
+        controlBar.fillStyle(0x000000, 0.6); // Negro semitransparente
+        controlBar.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
+        this.add.text(window.innerWidth/2 - 70, window.innerHeight - 40, 'CONTROL TÁCTICO', { fontSize: '14px', fill: '#aaa' });
+
+        // El Jugador (Ahora más arriba)
+        player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
+        player.setScale(0.8);
         player.setCollideWorldBounds(true);
 
         // Grupos
         bullets = this.physics.add.group({ defaultKey: 'bala' });
+        enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
-        // Generador aleatorio de enemigos (cada 1.2 segundos)
-        this.time.addEvent({ delay: 1200, callback: spawnEnemy, callbackScope: this, loop: true });
+        // Generador de enemigos
+        this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // Marcador de puntos
-        scoreText = this.add.text(16, 16, 'Bajas: 0', { fontSize: '24px', fill: '#fff', backgroundColor: '#000' });
+        // Marcador
+        scoreText = this.add.text(16, 16, 'Bajas: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
 
         // Colisiones
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, gameOver, null, this);
+        this.physics.add.overlap(player, enemyBullets, gameOver, null, this); // ¡Las balas rojas te matan!
         
-        // Controles táctiles
-        this.input.on('pointermove', (pointer) => { player.x = pointer.x; });
-        this.input.on('pointerdown', () => { fireAction.call(this); });
+        // --- NUEVOS CONTROLES ---
+        this.input.on('pointermove', (pointer) => {
+            // Solo movemos al jugador si el dedo está en la zona inferior
+            if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
+                player.x = pointer.x;
+            }
+        });
+
+        this.input.on('pointerdown', (pointer) => {
+            if (pointer.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
+                fireAction.call(this);
+            }
+        });
     }
 
     function spawnEnemy() {
@@ -64,19 +87,45 @@
         let enemy = enemies.create(x, -50, tipoAleatorio);
         enemy.setScale(0.7);
         
-        // Velocidades distintas: El tigre es el más rápido
         let velocidad = 200;
-        if (tipoAleatorio === 'tigre') velocidad = 350;
-        if (tipoAleatorio === 'serpiente') velocidad = 150;
+        if (tipoAleatorio === 'tigre') velocidad = 380;
+        if (tipoAleatorio === 'serpiente') {
+            velocidad = 180;
+            // Movimiento especial en zigzag para la serpiente
+            this.tweens.add({
+                targets: enemy,
+                x: enemy.x + 50,
+                duration: 500,
+                yoyo: true,
+                repeat: -1
+            });
+        }
         
         enemy.setVelocityY(velocidad);
+
+        // --- DISPARO ENEMIGO (Solo los soldados enemigos disparan) ---
+        if (tipoAleatorio === 'enemigo_soldado') {
+            this.time.addEvent({
+                delay: 1500,
+                callback: () => {
+                    if (enemy.active) {
+                        let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
+                        if (eb) {
+                            eb.setVelocityY(400);
+                            eb.setTint(0xff0000); // Por si no tienes la imagen, que se vea roja
+                        }
+                    }
+                },
+                loop: true
+            });
+        }
     }
 
     function fireAction() {
         let bullet = bullets.get(player.x, player.y - 40);
         if (bullet) {
             bullet.setActive(true).setVisible(true);
-            bullet.setVelocityY(-500);
+            bullet.setVelocityY(-600);
         }
     }
 
@@ -87,17 +136,19 @@
         scoreText.setText('Bajas: ' + score);
     }
 
-    function gameOver(player, enemy) {
+    function gameOver() {
         this.physics.pause();
         player.setTint(0xff0000);
-        this.add.text(window.innerWidth/2 - 100, window.innerHeight/2, 'MISION FALLIDA', { fontSize: '32px', fill: '#ff0000', backgroundColor: '#000' });
+        this.add.text(window.innerWidth/2 - 120, window.innerHeight/2, 'MISIÓN FALLIDA', { 
+            fontSize: '32px', fill: '#ff0000', backgroundColor: '#000', padding: 10 
+        });
         
-        // Reiniciar tras 3 segundos
-        this.time.delayedCall(3000, () => { this.scene.restart(); });
+        this.time.delayedCall(2000, () => { this.scene.restart(); score = 0; });
     }
 
     function update() {
         bullets.children.each(b => { if (b.y < 0) b.destroy(); });
+        enemyBullets.children.each(eb => { if (eb.y > window.innerHeight) eb.destroy(); });
         enemies.children.each(e => { if (e.y > window.innerHeight) e.destroy(); });
     }
 </script>
