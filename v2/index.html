@@ -18,7 +18,7 @@
         height: window.innerHeight,
         physics: { 
             default: 'arcade', 
-            arcade: { debug: false } // Cambia a true si quieres ver las cajas de colisión
+            arcade: { debug: false } // Ponlo en 'true' si quieres ver los cuadros verdes de colisión
         },
         scene: { preload: preload, create: create, update: update }
     };
@@ -30,9 +30,10 @@
     let isFiring = false;
     let lastFired = 0;
 
+    // --- AJUSTES DE CALIBRACIÓN ---
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
-    const FIRE_RATE = 150; 
+    const FIRE_RATE = 300; // Cadencia reducida a la mitad (antes 150)
 
     function preload() {
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
@@ -48,11 +49,11 @@
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
+        // JUGADOR: Ajuste de colisión al tronco del cuerpo (40% del ancho original)
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8);
         player.setCollideWorldBounds(true);
-        // Ajustamos la caja de colisión del jugador para que sea más justa
-        player.setBodySize(player.width * 0.6, player.height * 0.8);
+        player.setBodySize(player.width * 0.4, player.height * 0.7, true); 
 
         bullets = this.physics.add.group({ defaultKey: 'bala' });
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
@@ -62,18 +63,18 @@
         hearts = this.add.group();
         actualizarCorazones.call(this);
 
+        // COLISIONES: Ahora mucho más estrictas
         this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
         this.physics.add.overlap(player, enemies, takeDamage, null, this);
         this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
 
         this.time.addEvent({ delay: 1000, callback: spawnEnemy, callbackScope: this, loop: true });
 
-        // --- MOVIMIENTO CORREGIDO (Borde a Borde) ---
+        // CONTROLES: Movimiento total
         this.input.on('pointerdown', (p) => { if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) isFiring = true; });
         this.input.on('pointerup', () => { isFiring = false; });
         this.input.on('pointermove', (p) => {
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
-                // Mapeo directo: el centro del jugador va donde esté el dedo
                 player.x = p.x;
             }
         });
@@ -94,10 +95,44 @@
         let b = bullets.get(player.x, player.y - 45);
         if (b) {
             b.setActive(true).setVisible(true);
-            b.setScale(0.15); // --- BALAS PEQUEÑAS ---
-            b.body.velocity.y = -800;
-            // Ajuste de colisión de la bala (muy estrecha)
-            b.setBodySize(b.width * 0.3, b.height * 0.3);
+            b.setScale(0.18); 
+            b.body.velocity.y = -850;
+            // Bala ultra-fina para que tenga que impactar visualmente
+            b.setBodySize(b.width * 0.2, b.height * 0.2, true);
+        }
+    }
+
+    function spawnEnemy() {
+        const x = Phaser.Math.Between(50, window.innerWidth - 50);
+        const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
+        const t = tipos[Math.floor(Math.random() * tipos.length)];
+        let enemy = enemies.create(x, -50, t).setScale(0.7);
+        
+        // ENEMIGOS: Colisión reducida al centro (50% del tamaño visual)
+        enemy.setBodySize(enemy.width * 0.5, enemy.height * 0.6, true);
+        
+        let v = (t === 'tigre') ? 420 : (t === 'serpiente' ? 180 : 220);
+        enemy.setVelocityY(v);
+
+        if (t === 'serpiente') {
+            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
+        }
+
+        if (t === 'enemigo_soldado') {
+            this.time.addEvent({
+                delay: 1500,
+                callback: () => {
+                    if (enemy.active) {
+                        let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
+                        if (eb) { 
+                            eb.setScale(0.18); 
+                            eb.setVelocityY(480); 
+                            eb.setBodySize(eb.width * 0.2, eb.height * 0.2, true);
+                        }
+                    }
+                },
+                loop: true
+            });
         }
     }
 
@@ -114,40 +149,6 @@
         hearts.clear(true, true);
         for (let i = 0; i < lives; i++) {
             hearts.create(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
-        }
-    }
-
-    function spawnEnemy() {
-        const x = Phaser.Math.Between(50, window.innerWidth - 50);
-        const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
-        const t = tipos[Math.floor(Math.random() * tipos.length)];
-        let enemy = enemies.create(x, -50, t).setScale(0.7);
-        
-        // Ajuste de Hitbox para enemigos (ajustado a su cuerpo real)
-        enemy.setBodySize(enemy.width * 0.7, enemy.height * 0.7);
-        
-        let v = (t === 'tigre') ? 420 : (t === 'serpiente' ? 180 : 220);
-        enemy.setVelocityY(v);
-
-        if (t === 'serpiente') {
-            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
-        }
-
-        if (t === 'enemigo_soldado') {
-            this.time.addEvent({
-                delay: 1500,
-                callback: () => {
-                    if (enemy.active) {
-                        let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
-                        if (eb) { 
-                            eb.setScale(0.15); // Balas enemigas también pequeñas
-                            eb.setVelocityY(450); 
-                            eb.setBodySize(eb.width * 0.3, eb.height * 0.3);
-                        }
-                    }
-                },
-                loop: true
-            });
         }
     }
 
