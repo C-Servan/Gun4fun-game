@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
+    
     <meta property="og:title" content="Gun4Fun: Jungle Fury">
-    <meta property="og:description" content="Misión 2: Operación Jungle Fury.">
+    <meta property="og:description" content="Misión 2: Operación Jungle Fury. Entrenamiento táctico avanzado.">
     <meta property="og:image" content="https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada2.jpg">
+    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } </style>
+    <style> 
+        body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
+    </style>
 </head>
 <body>
 <script>
@@ -27,12 +31,13 @@
     let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
     let musicStarted = false;
 
+    // CONSTANTES TÁCTICAS
     const CONTROL_PANEL_HEIGHT = 250; 
     const PLAYER_V_OFFSET = 320;     
     const FIRE_RATE = 450; 
 
     function preload() {
-        // Imágenes
+        // Imágenes desde Assets de GitHub
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
         this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
@@ -42,9 +47,8 @@
         this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
         this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
         
-        // Audio - Música
+        // Audio desde Assets de GitHub
         this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
-        // Audio - Efectos (SFX)
         this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
         this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
         this.load.audio('sfx_tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_tigre.mp3');
@@ -54,7 +58,7 @@
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // Inicializar sonidos
+        // Inicializar Sonidos
         bgMusic = this.sound.add('musica_fondo', { volume: 0.4, loop: true });
         sfxDisparo = this.sound.add('sfx_disparo', { volume: 0.3 });
         sfxSoldado = this.sound.add('sfx_soldado', { volume: 0.6 });
@@ -69,6 +73,7 @@
         enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
         enemies = this.physics.add.group();
 
+        // UI TÁCTICA
         scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
         missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
 
@@ -81,6 +86,7 @@
 
         this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
 
+        // Activar música y disparo
         this.input.on('pointerdown', (p) => { 
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
                 isFiring = true; 
@@ -109,7 +115,7 @@
             b.setActive(true).setVisible(true).setScale(0.18);
             b.body.velocity.y = -850;
             b.setBodySize(b.width * 0.2, b.height * 0.2, true);
-            sfxDisparo.play(); // Sonido de disparo
+            sfxDisparo.play();
         }
     }
 
@@ -125,19 +131,30 @@
 
     function spawnEnemy(tipo) {
         const x = Phaser.Math.Between(80, window.innerWidth - 80);
-        // Guardamos el tipo en el objeto para saber quién muere luego
         let enemy = enemies.create(x, -50, tipo).setScale(0.7);
         enemy.tipoEnemigo = tipo; 
         enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.3, true);
         
         if (tipo === 'enemigo_soldado') {
             enemy.setVelocityY(120);
+            
+            // INTELIGENCIA DE MOVIMIENTO ALEATORIO
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            const amp = Phaser.Math.Between(50, 150) * dir;
+            const vel = Phaser.Math.Between(1200, 2800);
+
             this.tweens.add({
-                targets: enemy, x: { from: 50, to: window.innerWidth - 50 },
-                duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                targets: enemy,
+                x: enemy.x + amp,
+                duration: vel,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
             });
+
+            // Disparo enemigo individual
             this.time.addEvent({
-                delay: 1800,
+                delay: Phaser.Math.Between(1600, 2600),
                 callback: () => {
                     if (enemy.active) {
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
@@ -149,12 +166,12 @@
             enemy.setVelocityY(420);
         } else if (tipo === 'serpiente') {
             enemy.setVelocityY(180);
-            this.tweens.add({ targets: enemy, x: enemy.x + 80, duration: 600, yoyo: true, repeat: -1 });
+            this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
         }
     }
 
     function hitEnemy(b, e) {
-        // Lógica de sonidos por tipo
+        // SFX de muerte según tipo
         if (e.tipoEnemigo === 'enemigo_soldado') sfxSoldado.play();
         else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
         else if (e.tipoEnemigo === 'serpiente') sfxSerpiente.play();
