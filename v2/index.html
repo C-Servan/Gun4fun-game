@@ -34,7 +34,7 @@ const PLAYER_V_OFFSET = 320;
 const FIRE_RATE = 450; 
 
 /**
- * BLOQUE 2: GESTIÓN DE ACTIVOS (PRELOAD) - AJUSTADO
+ * BLOQUE 2: GESTIÓN DE ACTIVOS (AJUSTE ANTIDESTELLO)
  */
 function preload() {
     // 2.1 Imágenes Estáticas
@@ -44,15 +44,32 @@ function preload() {
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
     this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
 
-    // 2.2 Spritesheets con AJUSTE DE PÍXELES (Basado en tus archivos)
-    // El jugador es más estrecho: 200px ancho
-    this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { frameWidth: 200, frameHeight: 256 });
+    // 2.2 Spritesheets con MARGEN DE SEGURIDAD
+    // He ajustado el frameWidth a 180 para el jugador y 220 para enemigos 
+    // para forzar a Phaser a centrarse en el cuerpo y no en el espacio vacío.
     
-    // El enemigo y el tigre usan el ancho completo: 256px ancho
-    this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { 
+        frameWidth: 180, 
+        frameHeight: 256,
+        margin: 10,
+        spacing: 0
+    });
     
-    // 2.3 Audio
+    this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { 
+        frameWidth: 220, 
+        frameHeight: 256,
+        margin: 15,
+        spacing: 0
+    });
+    
+    this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { 
+        frameWidth: 220, 
+        frameHeight: 256,
+        margin: 15,
+        spacing: 0
+    });
+    
+    // 2.3 Audio (Se mantiene igual)
     this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
     this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
