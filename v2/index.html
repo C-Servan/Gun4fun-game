@@ -6,11 +6,8 @@
     <meta property="og:title" content="Gun4Fun: Jungle Fury">
     <meta property="og:description" content="Misión 2: Operación Jungle Fury.">
     <meta property="og:image" content="https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/portada2.jpg">
-    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style> 
-        body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
-    </style>
+    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } </style>
 </head>
 <body>
 <script>
@@ -26,8 +23,8 @@
     let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, hearts, lives = 3;
     let isFiring = false, lastFired = 0;
     
-    // --- NUEVAS VARIABLES DE SONIDO ---
-    let bgMusic;
+    // VARIABLES DE AUDIO
+    let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
     let musicStarted = false;
 
     const CONTROL_PANEL_HEIGHT = 250; 
@@ -35,24 +32,34 @@
     const FIRE_RATE = 450; 
 
     function preload() {
+        // Imágenes
         this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
         this.load.image('soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png');
         this.load.image('enemigo_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png');
         this.load.image('tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png');
         this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
         this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
-        this.load.image('bala_ro_ja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
+        this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
         this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
         
-        // --- CARGA DE AUDIO ---
+        // Audio - Música
         this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
+        // Audio - Efectos (SFX)
+        this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
+        this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
+        this.load.audio('sfx_tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_tigre.mp3');
+        this.load.audio('sfx_serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_serpiente.mp3');
     }
 
     function create() {
         this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
         
-        // Preparamos la música (volumen al 50% y en bucle)
-        bgMusic = this.sound.add('musica_fondo', { volume: 0.5, loop: true });
+        // Inicializar sonidos
+        bgMusic = this.sound.add('musica_fondo', { volume: 0.4, loop: true });
+        sfxDisparo = this.sound.add('sfx_disparo', { volume: 0.3 });
+        sfxSoldado = this.sound.add('sfx_soldado', { volume: 0.6 });
+        sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
+        sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
         player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado');
         player.setScale(0.8).setCollideWorldBounds(true);
@@ -74,15 +81,10 @@
 
         this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
 
-        // --- CONTROL DE DISPARO Y ACTIVACIÓN DE MÚSICA ---
         this.input.on('pointerdown', (p) => { 
             if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
                 isFiring = true; 
-                // La música arranca al primer toque
-                if (!musicStarted) {
-                    bgMusic.play();
-                    musicStarted = true;
-                }
+                if (!musicStarted) { bgMusic.play(); musicStarted = true; }
             }
         });
         this.input.on('pointerup', () => { isFiring = false; });
@@ -107,6 +109,7 @@
             b.setActive(true).setVisible(true).setScale(0.18);
             b.body.velocity.y = -850;
             b.setBodySize(b.width * 0.2, b.height * 0.2, true);
+            sfxDisparo.play(); // Sonido de disparo
         }
     }
 
@@ -122,14 +125,15 @@
 
     function spawnEnemy(tipo) {
         const x = Phaser.Math.Between(80, window.innerWidth - 80);
+        // Guardamos el tipo en el objeto para saber quién muere luego
         let enemy = enemies.create(x, -50, tipo).setScale(0.7);
+        enemy.tipoEnemigo = tipo; 
         enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.3, true);
         
         if (tipo === 'enemigo_soldado') {
             enemy.setVelocityY(120);
             this.tweens.add({
-                targets: enemy,
-                x: { from: 50, to: window.innerWidth - 50 },
+                targets: enemy, x: { from: 50, to: window.innerWidth - 50 },
                 duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
             this.time.addEvent({
@@ -139,8 +143,7 @@
                         let eb = enemyBullets.create(enemy.x, enemy.y + 20, 'bala_roja');
                         if (eb) { eb.setScale(0.18).setVelocityY(480); eb.setBodySize(eb.width * 0.2, eb.height * 0.2, true); }
                     }
-                },
-                loop: true
+                }, loop: true
             });
         } else if (tipo === 'tigre') {
             enemy.setVelocityY(420);
@@ -150,16 +153,24 @@
         }
     }
 
+    function hitEnemy(b, e) {
+        // Lógica de sonidos por tipo
+        if (e.tipoEnemigo === 'enemigo_soldado') sfxSoldado.play();
+        else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
+        else if (e.tipoEnemigo === 'serpiente') sfxSerpiente.play();
+
+        b.destroy(); e.destroy();
+        score += 10;
+        scoreText.setText('BAJAS: ' + score);
+    }
+
     function takeDamage(p, obj) {
         obj.destroy();
         lives--;
         actualizarCorazones.call(this);
         player.setTint(0xff0000);
         this.time.delayedCall(200, () => player.clearTint());
-        if (lives <= 0) {
-            if (bgMusic) bgMusic.stop(); // Paramos música al morir
-            endGame.call(this);
-        }
+        if (lives <= 0) { if (bgMusic) bgMusic.stop(); endGame.call(this); }
     }
 
     function actualizarCorazones() {
@@ -167,12 +178,6 @@
         for (let i = 0; i < lives; i++) {
             hearts.create(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
         }
-    }
-
-    function hitEnemy(b, e) {
-        b.destroy(); e.destroy();
-        score += 10;
-        scoreText.setText('BAJAS: ' + score);
     }
 
     function endGame() {
@@ -189,14 +194,11 @@
 
     function saveScore(newScore) {
         let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
-        scores.push(newScore);
-        scores.sort((a, b) => b - a);
+        scores.push(newScore); scores.sort((a, b) => b - a);
         localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
     }
 
-    function getRanking() {
-        return JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
-    }
+    function getRanking() { return JSON.parse(localStorage.getItem('gun4fun_ranking')) || []; }
 </script>
 </body>
 </html>
