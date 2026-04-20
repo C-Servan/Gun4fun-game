@@ -34,42 +34,32 @@ const PLAYER_V_OFFSET = 320;
 const FIRE_RATE = 450; 
 
 /**
- * BLOQUE 2: GESTIÓN DE ACTIVOS (AJUSTE ANTIDESTELLO)
+ * BLOQUE 2: GESTIÓN DE ACTIVOS
  */
 function preload() {
-    // 2.1 Imágenes Estáticas
     this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
     this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
-    this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
 
-    // 2.2 Spritesheets con MARGEN DE SEGURIDAD
-    // He ajustado el frameWidth a 180 para el jugador y 220 para enemigos 
-    // para forzar a Phaser a centrarse en el cuerpo y no en el espacio vacío.
-    
+    // CARGA DE SERPIENTE: 256px para detectar los frames correctamente
+    this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
+        frameWidth: 256, 
+        frameHeight: 256 
+    });
+
     this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { 
-        frameWidth: 180, 
-        frameHeight: 256,
-        margin: 10,
-        spacing: 0
+        frameWidth: 180, frameHeight: 256, margin: 10, spacing: 0
     });
     
     this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { 
-        frameWidth: 220, 
-        frameHeight: 256,
-        margin: 15,
-        spacing: 0
+        frameWidth: 220, frameHeight: 256, margin: 15, spacing: 0
     });
     
     this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { 
-        frameWidth: 220, 
-        frameHeight: 256,
-        margin: 15,
-        spacing: 0
+        frameWidth: 220, frameHeight: 256, margin: 15, spacing: 0
     });
     
-    // 2.3 Audio (Se mantiene igual)
     this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
     this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
@@ -78,7 +68,7 @@ function preload() {
 }
 
 /**
- * BLOQUE 3: INICIALIZACIÓN (CREATE)
+ * BLOQUE 3: INICIALIZACIÓN
  */
 function create() {
     this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
@@ -103,6 +93,11 @@ function create() {
         key: 'run_tiger',
         frames: this.anims.generateFrameNumbers('tigre_s', { start: 0, end: 3 }),
         frameRate: 12, repeat: -1
+    });
+    this.anims.create({
+        key: 'reptar_snake',
+        frames: this.anims.generateFrameNumbers('serpiente_anim', { start: 0, end: 3 }),
+        frameRate: 8, repeat: -1
     });
 
     player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado_p');
@@ -137,7 +132,7 @@ function create() {
 }
 
 /**
- * BLOQUE 4: FACTORÍA DE UNIDADES (SPAWNING)
+ * BLOQUE 4: FACTORÍA DE UNIDADES
  */
 function spawnManager() {
     const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
@@ -172,14 +167,21 @@ function spawnEnemy(tipo) {
         enemy = enemies.create(x, -50, 'tigre_s').setScale(0.7);
         enemy.play('run_tiger');
         enemy.setVelocityY(420);
+        // AJUSTE TIGRE (Ya lo tiene)
+        enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
     } else {
-        enemy = enemies.create(x, -50, 'serpiente').setScale(0.7);
+        enemy = enemies.create(x, -50, 'serpiente_anim').setScale(0.7);
+        enemy.play('reptar_snake');
         enemy.setVelocityY(180);
         this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
+        
+        // AJUSTE SERPIENTE: Reducimos el ancho de colisión al 25% para que sea preciso
+        // El true al final centra el hitbox en el cuerpo de la serpiente
+        enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.4, true);
     }
     
     enemy.tipoEnemigo = tipo;
-    enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
+    // Quitamos la línea general que sobreescribía los ajustes específicos
 }
 
 /**
@@ -241,7 +243,7 @@ function endGame() {
     localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
 
     let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + 
-               scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
+                scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
 
     this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
         fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
