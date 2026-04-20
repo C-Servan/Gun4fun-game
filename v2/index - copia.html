@@ -24,19 +24,17 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Estados de juego
 let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, hearts, lives = 3;
 let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
 
-// Constantes tácticas
 const CONTROL_PANEL_HEIGHT = 250; 
 const PLAYER_V_OFFSET = 320;     
 const FIRE_RATE = 450; 
 
 /**
- * BLOQUE 2: GESTIÓN DE ACTIVOS (PRELOAD)
+ * BLOQUE 2: GESTIÓN DE ACTIVOS (AJUSTE ANTIDESTELLO)
  */
 function preload() {
     // 2.1 Imágenes Estáticas
@@ -46,12 +44,32 @@ function preload() {
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
     this.load.image('serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png');
 
-    // 2.2 Spritesheets Animados (Columna de 4 frames, 256x256 cada uno)
-    this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { frameWidth: 256, frameHeight: 256 });
+    // 2.2 Spritesheets con MARGEN DE SEGURIDAD
+    // He ajustado el frameWidth a 180 para el jugador y 220 para enemigos 
+    // para forzar a Phaser a centrarse en el cuerpo y no en el espacio vacío.
     
-    // 2.3 Audio
+    this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { 
+        frameWidth: 180, 
+        frameHeight: 256,
+        margin: 10,
+        spacing: 0
+    });
+    
+    this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { 
+        frameWidth: 220, 
+        frameHeight: 256,
+        margin: 15,
+        spacing: 0
+    });
+    
+    this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { 
+        frameWidth: 220, 
+        frameHeight: 256,
+        margin: 15,
+        spacing: 0
+    });
+    
+    // 2.3 Audio (Se mantiene igual)
     this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
     this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
@@ -63,7 +81,6 @@ function preload() {
  * BLOQUE 3: INICIALIZACIÓN (CREATE)
  */
 function create() {
-    // 3.1 Escenario y Sonido
     this.add.image(window.innerWidth/2, window.innerHeight/2, 'jungla').setDisplaySize(window.innerWidth, window.innerHeight);
     bgMusic = this.sound.add('musica_fondo', { volume: 0.4, loop: true });
     sfxDisparo = this.sound.add('sfx_disparo', { volume: 0.3 });
@@ -71,7 +88,7 @@ function create() {
     sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
     sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
-    // 3.2 Crear Animaciones (Basadas en los nuevos Spritesheets)
+    // Animaciones
     this.anims.create({
         key: 'walk_player',
         frames: this.anims.generateFrameNumbers('soldado_p', { start: 0, end: 3 }),
@@ -88,12 +105,10 @@ function create() {
         frameRate: 12, repeat: -1
     });
 
-    // 3.3 El Jugador
     player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado_p');
     player.setScale(0.8).setCollideWorldBounds(true).play('walk_player');
-    player.setBodySize(player.width * 0.2, player.height * 0.4, true); 
+    player.setBodySize(player.width * 0.3, player.height * 0.5, true); 
 
-    // 3.4 Grupos y UI
     bullets = this.physics.add.group({ defaultKey: 'bala' });
     enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
     enemies = this.physics.add.group();
@@ -103,10 +118,8 @@ function create() {
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
-    // 3.5 Eventos de Tiempo
     this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
 
-    // 3.6 Entrada de Usuario
     this.input.on('pointerdown', (p) => { 
         if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
             isFiring = true; 
@@ -118,7 +131,6 @@ function create() {
         if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) player.x = p.x;
     });
 
-    // 3.7 Colisiones
     this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
     this.physics.add.overlap(player, enemies, takeDamage, null, this);
     this.physics.add.overlap(player, enemyBullets, takeDamage, null, this);
@@ -142,7 +154,6 @@ function spawnEnemy(tipo) {
         enemy.play('walk_enemy');
         enemy.setVelocityY(120);
         
-        // I.A. Movimiento y Disparo
         this.tweens.add({
             targets: enemy, x: enemy.x + (Math.random() < 0.5 ? -100 : 100),
             duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
@@ -152,7 +163,7 @@ function spawnEnemy(tipo) {
             delay: Phaser.Math.Between(1600, 2600),
             callback: () => {
                 if (enemy.active) {
-                    let eb = enemyBullets.get(enemy.x, enemy.y + 20, 'bala_roja');
+                    let eb = enemyBullets.get(enemy.x, enemy.y + 40, 'bala_roja');
                     if (eb) { eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480); }
                 }
             }, loop: true
@@ -168,17 +179,16 @@ function spawnEnemy(tipo) {
     }
     
     enemy.tipoEnemigo = tipo;
-    enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.3, true);
+    enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
 }
 
 /**
  * BLOQUE 5: SISTEMAS DE COMBATE
  */
 function fireBullet() {
-    let b = bullets.get(player.x, player.y - 45);
+    let b = bullets.get(player.x, player.y - 60);
     if (b) {
         b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850);
-        b.setBodySize(b.width * 0.2, b.height * 0.2, true);
         sfxDisparo.play();
     }
 }
@@ -210,7 +220,6 @@ function update(time) {
         fireBullet.call(this);
         lastFired = time + FIRE_RATE;
     }
-    // Limpieza de pantalla
     bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
     enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
     enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
@@ -227,7 +236,6 @@ function endGame() {
     this.physics.pause();
     if (bgMusic) bgMusic.stop();
     
-    // Guardar Ranking
     let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
     scores.push(score); scores.sort((a, b) => b - a);
     localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
