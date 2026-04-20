@@ -122,18 +122,19 @@ FRASES_INSTRUCTOR = [
 def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. ¡Estás listo soldado!")
 
-# Comando /game mejorado con botones
+# Comando /game corregido
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    # Misión 01
+    # Misión 1
     markup01 = types.InlineKeyboardMarkup()
+    # Usamos callback_game para el botón de jugar y callback_data para el de ranking
     markup01.add(types.InlineKeyboardButton("🎮 Jugar Misión 1", callback_game=types.CallbackGame()))
     markup01.add(types.InlineKeyboardButton("🏆 Ver Ranking", callback_data="rank_01"))
     
     bot.send_message(message.chat.id, "🎯 **MISIÓN 1: ENTRENAMIENTO BÁSICO**", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_01", reply_markup=markup01)
 
-    # Misión 02
+    # Misión 2
     markup02 = types.InlineKeyboardMarkup()
     markup02.add(types.InlineKeyboardButton("🎮 Jugar Misión 2", callback_game=types.CallbackGame()))
     markup02.add(types.InlineKeyboardButton("🏆 Ver Ranking", callback_data="rank_02"))
@@ -141,18 +142,24 @@ def list_games(message):
     bot.send_message(message.chat.id, "🎯 **MISIÓN 2: OPERACIÓN JUNGLE FURY**", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_02", reply_markup=markup02)
 
-# Manejador de callbacks
+# Manejador de callbacks corregido (Separando lógica de Juego y de Botones)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    if call.game_short_name == 'shooter_01':
-        bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v1/")
-    elif call.game_short_name == 'shooter_02':
-        bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v2/")
-    elif call.data.startswith("rank_"):
+    # 1. Si el callback es para INICIAR un juego
+    if call.game_short_name:
+        if call.game_short_name == 'shooter_01':
+            bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v1/")
+        elif call.game_short_name == 'shooter_02':
+            bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v2/")
+    
+    # 2. Si el callback es un botón de RANKING (usa callback_data)
+    elif call.data and call.data.startswith("rank_"):
         mision = "Misión 1" if "01" in call.data else "Misión 2"
-        # Esto es un placeholder hasta conectar la DB
-        msg = f"🪖 INFORME DEL INSTRUCTOR: {mision}\n\n1. @Player1 - 100\n2. @Player2 - 80\n\n¡A las armas!"
+        # Placeholder del ranking
+        msg = f"🪖 INFORME DEL INSTRUCTOR: {mision}\n\n1. @Comandante - 500\n2. @Recluta1 - 450\n\n¡A las armas!"
         bot.answer_callback_query(call.id, text=msg, show_alert=True)
+    
+    # 3. Respuesta por defecto para evitar que el botón se quede "cargando"
     else:
         bot.answer_callback_query(call.id)
 
