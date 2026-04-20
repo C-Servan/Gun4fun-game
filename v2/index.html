@@ -42,7 +42,7 @@ function preload() {
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
 
-    // CARGA DE SERPIENTE COMO SPRITESHEET (Corte vertical de 256x256)
+    // CARGA DE SERPIENTE: Ajustado frameWidth a 256 para que coincida con la imagen
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
         frameWidth: 256, 
         frameHeight: 256 
@@ -169,9 +169,9 @@ function spawnEnemy(tipo) {
         enemy.play('run_tiger');
         enemy.setVelocityY(420);
     } else {
-        // SERPIENTE: Usamos el spritesheet con su animación
+        // SERPIENTE: Usamos el spritesheet y activamos la animación
         enemy = enemies.create(x, -50, 'serpiente_anim').setScale(0.7);
-        enemy.play('reptar_snake');
+        enemy.play('reptar_snake'); // <--- Esto activa el movimiento de los frames
         enemy.setVelocityY(180);
         this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
     }
