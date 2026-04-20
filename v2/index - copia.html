@@ -28,6 +28,7 @@ let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, h
 let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
+let controlBar; // Nueva variable para la guía visual
 
 const CONTROL_PANEL_HEIGHT = 250; 
 const PLAYER_V_OFFSET = 320;     
@@ -42,7 +43,6 @@ function preload() {
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
 
-    // CARGA DE SERPIENTE: 256px para detectar los frames correctamente
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
         frameWidth: 256, 
         frameHeight: 256 
@@ -77,6 +77,11 @@ function create() {
     sfxSoldado = this.sound.add('sfx_soldado', { volume: 0.6 });
     sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
     sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
+
+    // BARRA DE MOVIMIENTO (Guía visual en la zona de control)
+    controlBar = this.add.graphics();
+    controlBar.lineStyle(4, 0x00ff00, 0.5);
+    controlBar.lineBetween(50, window.innerHeight - 100, window.innerWidth - 50, window.innerHeight - 100);
 
     // Animaciones
     this.anims.create({
@@ -148,12 +153,10 @@ function spawnEnemy(tipo) {
         enemy = enemies.create(x, -50, 'enemigo_s').setScale(0.7);
         enemy.play('walk_enemy');
         enemy.setVelocityY(120);
-        
         this.tweens.add({
             targets: enemy, x: enemy.x + (Math.random() < 0.5 ? -100 : 100),
             duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
-
         this.time.addEvent({
             delay: Phaser.Math.Between(1600, 2600),
             callback: () => {
@@ -167,21 +170,15 @@ function spawnEnemy(tipo) {
         enemy = enemies.create(x, -50, 'tigre_s').setScale(0.7);
         enemy.play('run_tiger');
         enemy.setVelocityY(420);
-        // AJUSTE TIGRE (Ya lo tiene)
         enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
     } else {
         enemy = enemies.create(x, -50, 'serpiente_anim').setScale(0.7);
         enemy.play('reptar_snake');
         enemy.setVelocityY(180);
         this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
-        
-        // AJUSTE SERPIENTE: Reducimos el ancho de colisión al 25% para que sea preciso
-        // El true al final centra el hitbox en el cuerpo de la serpiente
         enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.4, true);
     }
-    
     enemy.tipoEnemigo = tipo;
-    // Quitamos la línea general que sobreescribía los ajustes específicos
 }
 
 /**
@@ -245,11 +242,21 @@ function endGame() {
     let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + 
                 scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
 
-    this.add.text(window.innerWidth/2, window.innerHeight/2, text, { 
-        fontSize: '22px', fill: '#fff', backgroundColor: '#000', padding: 20, align: 'center'
+    // Fondo oscuro para el ranking
+    this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 400, 500, 0x000000, 0.8).setOrigin(0.5);
+
+    this.add.text(window.innerWidth/2, window.innerHeight/2 - 50, text, { 
+        fontSize: '22px', fill: '#fff', align: 'center'
     }).setOrigin(0.5);
     
-    this.time.delayedCall(4000, () => location.reload());
+    // BOTÓN VOLVER A INTENTAR
+    const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 180, ' VOLVER A INTENTAR ', {
+        fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive();
+
+    btnRetry.on('pointerdown', () => location.reload());
+    btnRetry.on('pointerover', () => btnRetry.setStyle({ fill: '#fff' }));
+    btnRetry.on('pointerout', () => btnRetry.setStyle({ fill: '#000' }));
 }
 
 </script>
