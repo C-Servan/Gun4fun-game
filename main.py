@@ -25,11 +25,93 @@ def keep_alive():
 TOKEN = os.getenv('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# --- BASE DE DATOS DE FRASES (Se mantiene igual) ---
+# --- BASE DE DATOS: 80 FRASES DEL INSTRUCTOR ---
 FRASES_INSTRUCTOR = [
-    "¡ATENCIÓN! Soldados de verdad en la Misión 2. ¡Sigan así!",
-    "¡Sin piedad, reclutas! El ranking no perdona debilidades.",
-    # ... (Mantén tus 80 frases aquí)
+    # Bloque A: Motivación
+    "¡ATENCIÓN! He revisado los registros y parecen soldados de verdad. ¡Sigan así!",
+    "¡Reclutas, el informe de bajas es impresionante! No se relajen.",
+    "¡Escuchen bien! El operativo destacado está marcando el paso.",
+    "¡A las armas! El ranking está que arde.",
+    "¡Buen trabajo, soldados! El Alto Mando está satisfecho... por ahora.",
+    "¡Fuego a discreción! Habéis convertido la jungla en vuestro patio.",
+    "Veo que las raciones han sentado bien. ¡Puntuaciones de élite!",
+    "¡A formar! Es un orgullo ver vuestros nombres en este informe.",
+    "Soldados, vuestra eficiencia ha subido un 200%. ¡Ese es el espíritu!",
+    "¡Atención! La Misión 2 tiene nuevos dueños en este Top 5.",
+    "No esperaba menos de una unidad bajo mi mando. ¡Leyendas!",
+    "¡Reclutas, habéis demostrado que los obstáculos son solo objetivos!",
+    "¡Mirad ese ranking! Es poesía bélica en estado puro.",
+    "¡Excelente despliegue! El enemigo está en retirada.",
+    "Soldados, hoy descansáis como héroes, mañana os quiero más rápidos.",
+    "¡Esa es la actitud! Sangre, sudor y píxeles. ¡Gran trabajo!",
+    "El Instructor reconoce vuestro valor. ¡Defiendan esa posición!",
+    "¡Impresionante! Habéis batido el récord de la unidad.",
+    "¡A la carga! Que el mundo sepa quién domina esta jungla.",
+    "Soldados, habéis cumplido el objetivo. ¡A disfrutar del botín!",
+    # Bloque B: Sarcasmo
+    "¡Reclutas! He visto tortugas con más iniciativa. ¡Muevan el culo!",
+    "¿Eso es todo? Mi abuela disparaba mejor y tenía menos lag.",
+    "Soldados, el objetivo es eliminar enemigos, no hacerse selfies.",
+    "Veo muchos nombres abajo. ¿Están de vacaciones o tienen miedo?",
+    "¡Atención! Si el ranking fuera un desfile, iríais marcha atrás.",
+    "¿Disparáis balas o palomitas? ¡Esa puntería es de vergüenza!",
+    "He visto reclutas con más agallas en su primer día. ¡Espabilad!",
+    "Soldado, si buscas el botón de 'rendirse', te has equivocado.",
+    "¿Esa es vuestra puntuación o la temperatura? ¡Es ridícula!",
+    "¡Reclutas! No quiero excusas, quiero bajas en mi escritorio.",
+    "Si la jungla hablara, se estaría riendo de vuestro rendimiento.",
+    "He visto simuladores de paseo más intensos. ¡Acción!",
+    "Soldados, dejad de jugar con las plantas y usad el plomo.",
+    "¡Atención! El último del ranking limpiará las letrinas.",
+    "Vuestra técnica es tan mala que el enemigo muere de risa.",
+    "¡Reclutas! ¿Necesitáis un mapa para entrar en el Top 5?",
+    "He visto bots con más carisma y puntería. ¡Penoso!",
+    "La próxima vez, aseguraos de llevar el seguro quitado.",
+    "¿Eso ha sido un disparo o un estornudo? ¡Meteos en la pelea!",
+    "El Instructor está decepcionado. El Top 5 salva el honor.",
+    # Bloque C: Estilo Gun4Fun
+    "¡Soldados! La Misión 2 no se completa sola. Vigilo.",
+    "¡Recluta del Top 1, invite a una ronda! Menuda marca.",
+    "¡A formar! El ranking está listo. ¡Fuego a discreción!",
+    "La inteligencia confirma: el Top 5 son leyendas. El resto... sigan.",
+    "¡Soldados, uníos! La puntería necesita un ajuste.",
+    "¡Misión 2 informando! Nuestros reclutas son más duros.",
+    "¡Instructor en el canal! El ranking separa hombres de niños.",
+    "Recordad: en Gun4Fun no hay medallas por participar, solo por dominar.",
+    "¡Asegurad el perímetro! El viernes rendiréis cuentas.",
+    "¡Reclutas! El ranking es vuestro espejo. ¿Os gusta?",
+    "Soldados, la jungla es nuestra. Recordádselo al enemigo.",
+    "¡Gun4Fun no duerme! He contado vuestras bajas toda la noche.",
+    "¡Atención! El Top 5 será recordado en los anales de la misión.",
+    "No hay mayor gloria que ver tu nombre en lo más alto.",
+    "¡Soldados! Vuestra misión es superar al de arriba.",
+    "El Instructor ha hablado: ¡menos charla y más acción!",
+    "¡Reclutas! La Misión 2 es vuestro examen. ¿Vais a suspender?",
+    "¡Fuego! El ranking semanal es el único informe que importa.",
+    "Soldados, haced que cada bala cuente. No regalo puntos.",
+    "¡Gun4Fun al frente! Demostrad que sois de élite.",
+    # Bloque D: Breves
+    "¡Sin piedad! El ranking no perdona debilidades.",
+    "¡Rompan filas! El Top 5 les espera.",
+    "¡Instructor informando! Tenemos héroes aquí.",
+    "¡Aseguren marcas! La gloria es para los persistentes.",
+    "¡Última llamada! ¡A jugar!",
+    "¡A las armas! El ranking se actualiza ahora.",
+    "¡Puntuaciones de infarto! Buen trabajo.",
+    "¡Reclutas, al frente! Quiero el máximo.",
+    "¡Ranking listo para revisión!",
+    "¡Fuego y gloria! Mirad el Top 5.",
+    "¡A por el récord! Sin excusas.",
+    "¡Disciplina y puntería! Es todo.",
+    "¡Informe de bajas procesado!",
+    "¡A los puestos de combate!",
+    "¡Sin descanso hasta el Top 1!",
+    "¡Misión activa! Ranking actualizado.",
+    "¡Objetivo cumplido!",
+    "¡Honor y puntos!",
+    "¡Demostrad vuestra valía!",
+    "¡Rompan filas y a disparar!",
+    "¡Instructor fuera! Al combate."
 ]
 
 # Comando /start
@@ -37,58 +119,41 @@ FRASES_INSTRUCTOR = [
 def send_welcome(message):
     bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. ¡Estás listo soldado!")
 
-# --- CORRECCIÓN CRÍTICA EN /GAME ---
+# Comando /game (ESTRUCTURA ORIGINAL RECUPERADA)
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    try:
-        # Misión 1
-        markup01 = types.InlineKeyboardMarkup()
-        # REGLA DE ORO: El botón de juego DEBE ser el primero
-        btn_play01 = types.InlineKeyboardButton("🎮 Jugar Misión 1", callback_game=types.CallbackGame())
-        btn_rank01 = types.InlineKeyboardButton("🏆 Ver Ranking", callback_data="rank_01")
-        markup01.row(btn_play01) # Fila 1: Solo el juego
-        markup01.row(btn_rank01) # Fila 2: El ranking
-        
-        bot.send_game(message.chat.id, "shooter_01", reply_markup=markup01)
+    # Misión 01
+    bot.send_message(message.chat.id, "🎯 **MISIÓN 01: ENTRENAMIENTO BÁSICO**", parse_mode="Markdown")
+    bot.send_game(message.chat.id, "shooter_01")
 
-        # Misión 2
-        markup02 = types.InlineKeyboardMarkup()
-        btn_play02 = types.InlineKeyboardButton("🎮 Jugar Misión 2", callback_game=types.CallbackGame())
-        btn_rank02 = types.InlineKeyboardButton("🏆 Ver Ranking", callback_data="rank_02")
-        markup02.row(btn_play02)
-        markup02.row(btn_rank02)
+    # Misión 02
+    bot.send_message(message.chat.id, "🎯 **MISIÓN 2: OPERACIÓN JUNGLE FURY**", parse_mode="Markdown")
+    bot.send_game(message.chat.id, "shooter_02")
 
-        bot.send_game(message.chat.id, "shooter_02", reply_markup=markup02)
-        
-    except Exception as e:
-        print(f"Error en comando /game: {e}")
-        bot.send_message(message.chat.id, "Instructor informando: Hubo un fallo en la entrega del equipo. Comandante, verifique el nombre de los juegos en BotFather.")
+    # Añadimos un mensaje extra con el botón de Ranking para no interferir con el juego
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🏆 VER RANKING DE COMBATE", callback_data="ver_ranking"))
+    bot.send_message(message.chat.id, "📊 **ESTADÍSTICAS DE CAMPAÑA**", reply_markup=markup)
 
-# Manejador de callbacks corregido
+# Manejador de los botones
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    try:
-        # Prioridad 1: Botones de Ranking (callback_data)
-        if call.data and call.data.startswith("rank_"):
-            mision = "Misión 1" if "01" in call.data else "Misión 2"
-            msg = f"🪖 INFORME DEL INSTRUCTOR: {mision}\n\n1. @Comandante - 500\n2. @Soldado1 - 400\n\n¡A las armas!"
-            bot.answer_callback_query(call.id, text=msg, show_alert=True)
-        
-        # Prioridad 2: Botones de Juego (game_short_name)
-        elif call.game_short_name:
-            if call.game_short_name == 'shooter_01':
-                bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v1/")
-            elif call.game_short_name == 'shooter_02':
-                bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v2/")
-        
-        else:
-            bot.answer_callback_query(call.id)
-            
-    except Exception as e:
-        print(f"Error en callback: {e}")
-        bot.answer_callback_query(call.id, text="Error en el sistema de telemetría.")
+    if call.data == 'ver_ranking':
+        # Elegimos una frase aleatoria de las 80
+        frase = random.choice(FRASES_INSTRUCTOR)
+        ranking_text = f"🪖 {frase}\n\n1. @Comandante - 5000\n2. @Soldado_Rambo - 4200\n3. @Elite_Sniper - 3800\n\n¡Vuelve a la carga!"
+        bot.answer_callback_query(call.id, text=ranking_text, show_alert=True)
+    
+    elif call.game_short_name == 'shooter_01':
+        bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v1/")
+    elif call.game_short_name == 'shooter_02':
+        bot.answer_callback_query(call.id, url="https://c-servan.github.io/Gun4fun-game/v2/")
+    else:
+        bot.answer_callback_query(call.id)
 
-# --- 3. ARRANQUE ---
+# --- 3. ARRANQUE COMBINADO ---
 if __name__ == "__main__":
+    print("Lanzando servidor de vida...")
     keep_alive()
+    print("Bot iniciando polling...")
     bot.polling(none_stop=True)
