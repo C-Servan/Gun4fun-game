@@ -42,7 +42,7 @@ function preload() {
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
 
-    // CARGA DE SERPIENTE: Ajustado frameWidth a 256 para que coincida con la imagen
+    // CARGA DE SERPIENTE: 256px para detectar los frames correctamente
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
         frameWidth: 256, 
         frameHeight: 256 
@@ -94,7 +94,6 @@ function create() {
         frames: this.anims.generateFrameNumbers('tigre_s', { start: 0, end: 3 }),
         frameRate: 12, repeat: -1
     });
-    // NUEVA: Animación de la serpiente
     this.anims.create({
         key: 'reptar_snake',
         frames: this.anims.generateFrameNumbers('serpiente_anim', { start: 0, end: 3 }),
@@ -168,16 +167,21 @@ function spawnEnemy(tipo) {
         enemy = enemies.create(x, -50, 'tigre_s').setScale(0.7);
         enemy.play('run_tiger');
         enemy.setVelocityY(420);
+        // AJUSTE TIGRE (Ya lo tiene)
+        enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
     } else {
-        // SERPIENTE: Usamos el spritesheet y activamos la animación
         enemy = enemies.create(x, -50, 'serpiente_anim').setScale(0.7);
-        enemy.play('reptar_snake'); // <--- Esto activa el movimiento de los frames
+        enemy.play('reptar_snake');
         enemy.setVelocityY(180);
         this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
+        
+        // AJUSTE SERPIENTE: Reducimos el ancho de colisión al 25% para que sea preciso
+        // El true al final centra el hitbox en el cuerpo de la serpiente
+        enemy.setBodySize(enemy.width * 0.25, enemy.height * 0.4, true);
     }
     
     enemy.tipoEnemigo = tipo;
-    enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
+    // Quitamos la línea general que sobreescribía los ajustes específicos
 }
 
 /**
