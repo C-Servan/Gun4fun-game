@@ -4,16 +4,11 @@
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <style> 
-        body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
-    </style>
+    <style> body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } </style>
 </head>
 <body>
 <script>
 
-/**
- * BLOQUE 1: CONFIGURACIÓN
- */
 const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
@@ -24,7 +19,7 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, hearts, lives = 3;
+let player, enemies, bullets, enemyBullets, score = 0, scoreText, hearts, lives = 3;
 let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
@@ -33,24 +28,19 @@ const CONTROL_PANEL_HEIGHT = 250;
 const PLAYER_V_OFFSET = 320;     
 const FIRE_RATE = 450; 
 
-/**
- * BLOQUE 2: CARGA DE ACTIVOS
- */
 function preload() {
     this.load.image('jungla', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_jungla.jpg');
     this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
 
+    // Carga estándar
     this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { frameWidth: 180, frameHeight: 256 });
     this.load.spritesheet('enemigo_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_enemigo.png', { frameWidth: 220, frameHeight: 256 });
     this.load.spritesheet('tigre_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/tigre.png', { frameWidth: 220, frameHeight: 256 });
     
-    // CONFIGURACIÓN PARA SERPIENTE VERTICAL
-    this.load.spritesheet('serpiente_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
-        frameWidth: 256, 
-        frameHeight: 256 
-    });
+    // Serpiente Vertical (256x1024 total)
+    this.load.spritesheet('serpiente_s', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { frameWidth: 256, frameHeight: 256 });
     
     this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
@@ -68,20 +58,14 @@ function create() {
     sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
     sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
+    // Animaciones
     this.anims.create({ key: 'walk_p', frames: this.anims.generateFrameNumbers('soldado_p', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'walk_e', frames: this.anims.generateFrameNumbers('enemigo_s', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'run_t', frames: this.anims.generateFrameNumbers('tigre_s', { start: 0, end: 3 }), frameRate: 12, repeat: -1 });
-    
-    // Animación de la serpiente
-    this.anims.create({ 
-        key: 'reptar_s', 
-        frames: this.anims.generateFrameNumbers('serpiente_s', { start: 0, end: 3 }), 
-        frameRate: 8, 
-        repeat: -1 
-    });
+    this.anims.create({ key: 'reptar_s', frames: this.anims.generateFrameNumbers('serpiente_s', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
 
     player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado_p').setScale(0.8).play('walk_p');
-    player.setCollideWorldBounds(true).setBodySize(player.width * 0.3, player.height * 0.5, true); 
+    player.setCollideWorldBounds(true);
 
     bullets = this.physics.add.group({ defaultKey: 'bala' });
     enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
@@ -91,7 +75,7 @@ function create() {
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
-    this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: 1200, callback: spawnManager, callbackScope: this, loop: true });
 
     this.input.on('pointerdown', (p) => { 
         if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
@@ -110,7 +94,11 @@ function create() {
 function spawnManager() {
     const tipos = ['soldado', 'tigre', 'serpiente'];
     const t = tipos[Phaser.Math.Between(0, 2)];
-    spawnEnemy.call(this, t);
+    try {
+        spawnEnemy.call(this, t);
+    } catch (e) {
+        console.error("Fallo en spawn de unidad:", e);
+    }
 }
 
 function spawnEnemy(tipo) {
@@ -121,7 +109,7 @@ function spawnEnemy(tipo) {
         enemy = enemies.create(x, -50, 'enemigo_s').setScale(0.7).play('walk_e').setVelocityY(120);
         this.time.addEvent({
             delay: 2000, callback: () => {
-                if (enemy.active) {
+                if (enemy && enemy.active) {
                     let eb = enemyBullets.get(enemy.x, enemy.y + 40, 'bala_roja');
                     if (eb) eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480);
                 }
@@ -129,10 +117,14 @@ function spawnEnemy(tipo) {
         });
     } else if (tipo === 'tigre') {
         enemy = enemies.create(x, -50, 'tigre_s').setScale(0.7).play('run_t').setVelocityY(420);
-    } else {
-        // La serpiente aparece y repta
-        enemy = enemies.create(x, -50, 'serpiente_s').setScale(0.7).play('reptar_s').setVelocityY(180);
-        this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 600, yoyo: true, repeat: -1 });
+    } else if (tipo === 'serpiente') {
+        // VERIFICACIÓN MANUAL ANTES DE CREAR
+        if (this.textures.exists('serpiente_s')) {
+            enemy = enemies.create(x, -50, 'serpiente_s').setScale(0.6);
+            enemy.play('reptar_s');
+            enemy.setVelocityY(160);
+            this.tweens.add({ targets: enemy, x: enemy.x + 60, duration: 800, yoyo: true, repeat: -1 });
+        }
     }
     
     if (enemy) {
@@ -164,9 +156,9 @@ function update(time) {
         if (b) { b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); sfxDisparo.play(); }
         lastFired = time + FIRE_RATE;
     }
-    bullets.children.each(b => { if (b.active && b.y < -50) b.destroy(); });
-    enemyBullets.children.each(eb => { if (eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
-    enemies.children.each(e => { if (e.active && e.y > window.innerHeight + 50) e.destroy(); });
+    bullets.children.each(b => { if (b && b.active && b.y < -50) b.destroy(); });
+    enemyBullets.children.each(eb => { if (eb && eb.active && eb.y > window.innerHeight + 50) eb.destroy(); });
+    enemies.children.each(e => { if (e && e.active && e.y > window.innerHeight + 50) e.destroy(); });
 }
 
 function actualizarCorazones() {
