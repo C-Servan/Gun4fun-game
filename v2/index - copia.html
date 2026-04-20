@@ -28,7 +28,7 @@ let player, enemies, bullets, enemyBullets, score = 0, scoreText, missionText, h
 let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
-let controlBar; // Nueva variable para la guía visual
+let controlInterface; // Contenedor para la nueva UI militar
 
 const CONTROL_PANEL_HEIGHT = 250; 
 const PLAYER_V_OFFSET = 320;     
@@ -44,8 +44,7 @@ function preload() {
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
 
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { 
-        frameWidth: 256, 
-        frameHeight: 256 
+        frameWidth: 256, frameHeight: 256 
     });
 
     this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { 
@@ -78,10 +77,40 @@ function create() {
     sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
     sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
-    // BARRA DE MOVIMIENTO (Guía visual en la zona de control)
-    controlBar = this.add.graphics();
-    controlBar.lineStyle(4, 0x00ff00, 0.5);
-    controlBar.lineBetween(50, window.innerHeight - 100, window.innerWidth - 50, window.innerHeight - 100);
+    // --- DISEÑO DE BARRA MILITAR ---
+    const barY = window.innerHeight - 80;
+    controlInterface = this.add.graphics();
+    
+    // Fondo de la barra (Gris acero con transparencia)
+    controlInterface.fillStyle(0x333333, 0.6);
+    controlInterface.fillRoundedRect(40, barY - 20, window.innerWidth - 80, 40, 10);
+    
+    // Bordes metálicos
+    controlInterface.lineStyle(2, 0x666666, 0.8);
+    controlInterface.strokeRoundedRect(40, barY - 20, window.innerWidth - 80, 40, 10);
+
+    // Dibujo de Flechas (Izquierda y Derecha)
+    controlInterface.fillStyle(0xaaaaaa, 0.9);
+    // Flecha Izquierda
+    controlInterface.beginPath();
+    controlInterface.moveTo(60, barY);
+    controlInterface.lineTo(85, barY - 12);
+    controlInterface.lineTo(85, barY + 12);
+    controlInterface.closePath();
+    controlInterface.fillPath();
+    
+    // Flecha Derecha
+    controlInterface.beginPath();
+    controlInterface.moveTo(window.innerWidth - 60, barY);
+    controlInterface.lineTo(window.innerWidth - 85, barY - 12);
+    controlInterface.lineTo(window.innerWidth - 85, barY + 12);
+    controlInterface.closePath();
+    controlInterface.fillPath();
+
+    // Texto indicativo central
+    this.add.text(window.innerWidth/2, barY, 'MANIPULAR PARA DESPLAZAMIENTO', { 
+        fontSize: '12px', fill: '#aaaaaa', fontStyle: 'bold' 
+    }).setOrigin(0.5).setAlpha(0.7);
 
     // Animaciones
     this.anims.create({
@@ -137,28 +166,45 @@ function create() {
 }
 
 /**
- * BLOQUE 4: FACTORÍA DE UNIDADES
+ * BLOQUE 4: FACTORÍA DE UNIDADES Y DIFICULTAD
  */
 function spawnManager() {
-    const tipos = ['enemigo_soldado', 'tigre', 'serpiente'];
-    const t = tipos[Math.floor(Math.random() * 3)];
-    spawnEnemy.call(this, t);
+    let nivelDificultad = Math.min(Math.floor(score / 50), 10);
+    let randomSpawn = Math.random() * 100;
+    let limiteSoldado = 33 + (nivelDificultad * 5); 
+    
+    let tipo;
+    if (randomSpawn < limiteSoldado) {
+        tipo = 'enemigo_soldado';
+    } else if (randomSpawn < limiteSoldado + (100 - limiteSoldado) / 2) {
+        tipo = 'tigre';
+    } else {
+        tipo = 'serpiente';
+    }
+    spawnEnemy.call(this, tipo, nivelDificultad);
 }
 
-function spawnEnemy(tipo) {
+function spawnEnemy(tipo, nivel) {
     const x = Phaser.Math.Between(80, window.innerWidth - 80);
     let enemy;
 
     if (tipo === 'enemigo_soldado') {
         enemy = enemies.create(x, -50, 'enemigo_s').setScale(0.7);
         enemy.play('walk_enemy');
-        enemy.setVelocityY(120);
+        enemy.setVelocityY(120 + (nivel * 5)); 
+        
+        let rangoIA = 100 + (nivel * 25); 
+        let duracionIA = 2000 - (nivel * 100); 
+
         this.tweens.add({
-            targets: enemy, x: enemy.x + (Math.random() < 0.5 ? -100 : 100),
-            duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            targets: enemy, 
+            x: enemy.x + (Math.random() < 0.5 ? -rangoIA : rangoIA),
+            duration: Math.max(duracionIA, 800), 
+            yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
         });
+
         this.time.addEvent({
-            delay: Phaser.Math.Between(1600, 2600),
+            delay: Phaser.Math.Between(1600 - (nivel * 100), 2600 - (nivel * 100)),
             callback: () => {
                 if (enemy.active) {
                     let eb = enemyBullets.get(enemy.x, enemy.y + 40, 'bala_roja');
@@ -242,14 +288,12 @@ function endGame() {
     let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + 
                 scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
 
-    // Fondo oscuro para el ranking
     this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 400, 500, 0x000000, 0.8).setOrigin(0.5);
 
     this.add.text(window.innerWidth/2, window.innerHeight/2 - 50, text, { 
         fontSize: '22px', fill: '#fff', align: 'center'
     }).setOrigin(0.5);
     
-    // BOTÓN VOLVER A INTENTAR
     const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 180, ' VOLVER A INTENTAR ', {
         fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive();
