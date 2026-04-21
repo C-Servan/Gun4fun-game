@@ -2,6 +2,8 @@ import os
 import telebot
 import random
 import time
+import pytz
+from datetime import datetime, timedelta
 from flask import Flask
 from threading import Thread
 from telebot import types
@@ -29,7 +31,7 @@ bot = telebot.TeleBot(TOKEN)
 # ID DEL GRUPO DE PRUEBA CONFIGURADO
 ID_GRUPO_OBJETIVO = -1002035446864
 
-# --- BASE DE DATOS: 80 FRASES DEL INSTRUCTOR (ÍNTEGRAS) ---
+# --- BASE DE DATOS: 80 FRASES DEL INSTRUCTOR ---
 FRASES_INSTRUCTOR = [
     # Bloque A: Motivación
     "¡ATENCIÓN! He revisado los registros y parecen soldados de verdad. ¡Sigan así!",
@@ -118,21 +120,39 @@ FRASES_INSTRUCTOR = [
     "¡Instructor fuera! Al combate."
 ]
 
-# --- 3. NUEVO: HILO DE AUTOMATIZACIÓN (El Sargento) ---
-def tarea_diaria():
+# --- 3. NUEVO: HILO DE AUTOMATIZACIÓN PROGRAMADA (15:00) ---
+def tarea_diaria_programada():
     while True:
-        # 86400 segundos = 24 horas. El primer mensaje sale a las 24h de encender el bot.
-        time.sleep(86400) 
+        # Definimos la zona horaria de España
+        zona_horaria = pytz.timezone('Europe/Madrid')
+        ahora = datetime.now(zona_horaria)
+        
+        # Programamos para las 15:00:00 de hoy
+        proxima_cita = ahora.replace(hour=15, minute=0, second=0, microsecond=0)
+        
+        # Si ya pasaron las 15:00, programamos para mañana
+        if ahora >= proxima_cita:
+            proxima_cita += timedelta(days=1)
+        
+        # Calculamos cuántos segundos faltan
+        segundos_para_esperar = (proxima_cita - ahora).total_seconds()
+        print(f"Instructor esperando {segundos_para_esperar} segundos hasta las 15:00.")
+        
+        # El bot duerme hasta la hora señalada
+        time.sleep(segundos_para_esperar)
+        
         try:
-            # Elegimos una frase de motivación/sarcasmo para el aviso diario
             frase_aviso = random.choice(FRASES_INSTRUCTOR)
-            mensaje = f"🪖 MENSAJE DEL INSTRUCTOR 🪖\n\n\"{frase_aviso}\"\n\nSoldados, no dejen que el ranking se enfríe. ¡Usen /game para desplegarse!"
+            mensaje = f"🪖 REPORTE DIARIO DE LAS 15:00 🪖\n\n\"{frase_aviso}\"\n\n¡Soldados, a las armas! Usad /game para actualizar el ranking."
             bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
+            # Dormimos un poco después de enviar para evitar duplicados por milisegundos
+            time.sleep(60) 
         except Exception as e:
-            print(f"Error en tarea diaria: {e}")
+            print(f"Error en tarea programada: {e}")
+            time.sleep(10)
 
-# Iniciamos el hilo de la tarea diaria sin bloquear el bot
-t_diaria = Thread(target=tarea_diaria)
+# Iniciamos el hilo
+t_diaria = Thread(target=tarea_diaria_programada)
 t_diaria.daemon = True
 t_diaria.start()
 
@@ -144,11 +164,9 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    # Misión 01
     bot.send_message(message.chat.id, "🎯 MISIÓN 01: ENTRENAMIENTO BÁSICO", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_01")
 
-    # Misión 02
     bot.send_message(message.chat.id, "🎯 MISIÓN 2: OPERACIÓN JUNGLE FURY", parse_mode="Markdown")
     bot.send_game(message.chat.id, "shooter_02")
 
@@ -158,29 +176,22 @@ def list_games(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    # Capturamos quién está interactuando
-    user = call.from_user
-    nombre_soldado = user.username if user.username else user.first_name
+    user = call.from_usernombre_soldado = user.username if user.username else user.first_name
 
     if call.data == 'ver_ranking':
         frase = random.choice(FRASES_INSTRUCTOR)
-        # Aquí podrías integrar la lectura real de Firebase en el futuro
         ranking_text = f"🪖 {frase}\n\n1. @Comandante - 5000\n2. @Soldado_Rambo - 4200\n3. @Elite_Sniper - 3800\n\n¡Vuelve a la carga!"
         bot.answer_callback_query(call.id, text=ranking_text, show_alert=True)
     
     elif call.game_short_name == 'shooter_01':
-        # Añadimos el parámetro ?user= para que el juego sepa quién juega
         bot.answer_callback_query(call.id, url=f"https://c-servan.github.io/Gun4fun-game/v1/?user={nombre_soldado}")
         
     elif call.game_short_name == 'shooter_02':
-        # Añadimos el parámetro ?user= para que el juego sepa quién juega
         bot.answer_callback_query(call.id, url=f"https://c-servan.github.io/Gun4fun-game/v2/?user={nombre_soldado}")
     else:
         bot.answer_callback_query(call.id)
 
 # --- 5. ARRANQUE COMBINADO ---
 if __name__ == "__main__":
-    print("Lanzando servidor de vida...")
     keep_alive()
-    print("Bot iniciando polling...")
     bot.polling(none_stop=True)
