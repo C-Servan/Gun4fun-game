@@ -189,7 +189,8 @@ def list_games(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    user = call.from_usernombre_soldado = user.username if user.username else user.first_name
+    user = call.from_user
+    nombre_soldado = user.username if user.username else user.first_name
 
     if call.data == 'ver_ranking':
         frase = random.choice(FRASES_INSTRUCTOR)
