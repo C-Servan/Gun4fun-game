@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Jungle Fury - Tactical Fix</title>
+    <title>Gun4Fun: Jungle Fury</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style> 
         body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
@@ -85,8 +85,6 @@ function create() {
 
     player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado_p');
     player.setScale(0.8).setCollideWorldBounds(true).play('walk_player');
-    
-    // --- MEJORA: HITBOX DEL JUGADOR MÁS PEQUEÑA (Más justo) ---
     player.setBodySize(player.width * 0.25, player.height * 0.4, true); 
     player.setOffset(65, 100); 
 
@@ -96,7 +94,7 @@ function create() {
     pickups = this.physics.add.group(); 
 
     scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY RECALIBRATED', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
+    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY ELITE', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
@@ -120,16 +118,16 @@ function create() {
 }
 
 /**
- * BLOQUE 4: GESTIÓN DE ENEMIGOS
+ * BLOQUE 4: GESTIÓN DE ENEMIGOS Y DIFICULTAD
  */
 function spawnManager() {
-    let nivelDificultad = Math.min(Math.floor(score / 50), 12);
+    let nivelDificultad = Math.min(Math.floor(score / 50), 15);
     let randomSpawn = Math.random() * 100;
 
-    if (randomSpawn < 30) { 
-        let cantidad = Phaser.Math.Between(4, 7); // Oleadas un poco más pequeñas
+    if (randomSpawn < 35) { 
+        let cantidad = Phaser.Math.Between(5, 10);
         for(let i=0; i<cantidad; i++){
-            this.time.delayedCall(i * 220, () => { spawnEnemy.call(this, 'enemigo_soldado', nivelDificultad); });
+            this.time.delayedCall(i * 200, () => { spawnEnemy.call(this, 'enemigo_soldado', nivelDificultad); });
         }
     } else {
         let tipo = randomSpawn < 75 ? 'enemigo_soldado' : (randomSpawn < 88 ? 'tigre' : 'serpiente');
@@ -141,31 +139,30 @@ function spawnEnemy(tipo, nivel) {
     const x = Phaser.Math.Between(80, window.innerWidth - 80);
     let enemy = enemies.create(x, -50, tipo === 'enemigo_soldado' ? 'enemigo_s' : (tipo === 'tigre' ? 'tigre_s' : 'serpiente_anim')).setScale(0.7);
     enemy.tipoEnemigo = tipo;
-    enemy.health = 1; // --- VOLVEMOS A 1 VIDA ---
+    enemy.health = 1; 
 
     if (tipo === 'enemigo_soldado') {
         enemy.play('walk_enemy');
-        enemy.setVelocityY(130 + (nivel * 4));
-        let rangoIA = 100 + (nivel * 20);
+        enemy.setVelocityY(120 + (nivel * 5));
+        let rangoIA = 100 + (nivel * 25);
         let targetX = Phaser.Math.Clamp(enemy.x + (Math.random() < 0.5 ? -rangoIA : rangoIA), 60, window.innerWidth - 60);
-        this.tweens.add({ targets: enemy, x: targetX, duration: Math.max(2000 - (nivel * 100), 900), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        this.tweens.add({ targets: enemy, x: targetX, duration: Math.max(2000 - (nivel * 100), 800), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
         this.time.addEvent({ 
-            delay: Math.max(Phaser.Math.Between(1800, 2800) - (nivel * 100), 800), 
+            delay: Math.max(Phaser.Math.Between(1600, 2600) - (nivel * 110), 650), 
             callback: () => { 
                 if (enemy.active) { 
                     let eb = enemyBullets.get(enemy.x, enemy.y + 40); 
                     if (eb) {
-                        eb.setActive(true).setVisible(true).setScale(0.15).setVelocityY(450 + (nivel * 8));
-                        // --- MEJORA: BALA ENEMIGA MÁS PEQUEÑA ---
-                        eb.body.setSize(eb.width * 0.4, eb.height * 0.4); 
+                        eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480 + (nivel * 8));
+                        eb.body.setSize(eb.width * 0.4, eb.height * 0.4);
                     }
                 } 
             }, 
             loop: true 
         });
     } else if (tipo === 'tigre') {
-        enemy.play('run_tiger').setVelocityY(400 + (nivel * 10));
+        enemy.play('run_tiger').setVelocityY(420 + (nivel * 10));
         enemy.setBodySize(enemy.width * 0.4, enemy.height * 0.5, true);
     } else {
         enemy.play('reptar_snake').setVelocityY(180 + (nivel * 5));
@@ -183,7 +180,7 @@ function hitEnemy(b, e) {
     else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
     else sfxSerpiente.play();
 
-    if (Math.random() < 0.10) {
+    if (Math.random() < 0.01) {
         let h = pickups.create(e.x, e.y, 'corazon').setScale(0.06);
         h.setVelocityY(100);
     }
@@ -212,8 +209,8 @@ function collectPickup(p, item) {
  */
 function update(time) {
     if (isFiring && time > lastFired) {
-        // --- MEJORA: BALA ALINEADA CON EL ARMA ---
-        let b = bullets.get(player.x + 15, player.y - 100); 
+        // --- CALIBRACIÓN DE ARMA: Se desplaza X a la derecha (+45) y se sube Y (-110) ---
+        let b = bullets.get(player.x + 45, player.y - 110); 
         if (b) { 
             b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); 
             sfxDisparo.play(); 
@@ -245,7 +242,7 @@ function endGame() {
     let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
     scores.push(score); scores.sort((a, b) => b - a);
     localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
-    let text = `OPERACIÓN COMPLETADA\n\nBAJAS: ${score}\n\nTOP 5:\n` + scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
+    let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
     this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 400, 500, 0x000000, 0.8).setOrigin(0.5);
     this.add.text(window.innerWidth/2, window.innerHeight/2 - 50, text, { fontSize: '22px', fill: '#fff', align: 'center' }).setOrigin(0.5);
     const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 180, ' VOLVER A INTENTAR ', { fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold' }).setOrigin(0.5).setInteractive();
