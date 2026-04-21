@@ -156,6 +156,19 @@ t_diaria = Thread(target=tarea_diaria_programada)
 t_diaria.daemon = True
 t_diaria.start()
 
+# COMANDO SECRETO PARA FORZAR EL MENSAJE AHORA MISMO
+@bot.message_handler(commands=['test_aviso'])
+def test_aviso(message):
+    # Solo tú o los admins deberían poder usarlo si quisieras, 
+    # pero para la prueba lo dejamos libre
+    try:
+        frase_aviso = random.choice(FRASES_INSTRUCTOR)
+        mensaje = f"🚀 PRUEBA DE DESPLIEGUE FORZADA 🚀\n\n\"{frase_aviso}\"\n\nSoldados, el sistema de aviso automático funciona. ¡A las armas!"
+        bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
+        bot.reply_to(message, "✅ Mensaje enviado al grupo de prueba.")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+        
 # --- 4. MANEJADORES DE COMANDOS ---
 
 @bot.message_handler(commands=['start'])
