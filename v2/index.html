@@ -14,6 +14,10 @@
 /**
  * BLOQUE 1: CONFIGURACIÓN Y VARIABLES
  */
+const FIREBASE_DB_URL = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/ranking.json";
+const urlParams = new URLSearchParams(window.location.search);
+const userName = urlParams.get('user') || 'Soldado';
+
 const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
@@ -24,8 +28,8 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let player, enemies, bullets, enemyBullets, pickups, score = 0, scoreText, missionText, hearts, lives = 3;
-let isFiring = false, lastFired = 0;
+let player, enemies, bullets, enemyBullets, pickups, score = 0, scoreText, hearts, lives = 3;
+let isFiring = false, lastFired = 0, isInvulnerable = false, shieldAura;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
 
@@ -41,6 +45,7 @@ function preload() {
     this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
+    this.load.image('escudo', 'https://cdn-icons-png.flaticon.com/512/1067/1067346.png');
 
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { frameWidth: 180, frameHeight: 256, margin: 10, spacing: 0 });
@@ -50,8 +55,6 @@ function preload() {
     this.load.audio('musica_fondo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_jungla.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
     this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
-    this.load.audio('sfx_tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_tigre.mp3');
-    this.load.audio('sfx_serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_serpiente.mp3');
 }
 
 /**
@@ -62,21 +65,10 @@ function create() {
     bgMusic = this.sound.add('musica_fondo', { volume: 0.4, loop: true });
     sfxDisparo = this.sound.add('sfx_disparo', { volume: 0.3 });
     sfxSoldado = this.sound.add('sfx_soldado', { volume: 0.6 });
-    sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
-    sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
     const panelUI = this.add.graphics();
     panelUI.fillStyle(0x222222, 0.7);
     panelUI.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
-    panelUI.lineStyle(4, 0x444444, 1);
-    panelUI.lineBetween(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, window.innerHeight - CONTROL_PANEL_HEIGHT);
-
-    const arrowY = window.innerHeight - (CONTROL_PANEL_HEIGHT / 2);
-    panelUI.fillStyle(0x888888, 0.5);
-    panelUI.fillTriangle(30, arrowY, 60, arrowY - 25, 60, arrowY + 25);
-    panelUI.fillTriangle(window.innerWidth - 30, arrowY, window.innerWidth - 60, arrowY - 25, window.innerWidth - 60, arrowY + 25);
-
-    this.add.text(window.innerWidth/2, window.innerHeight - 30, 'ZONA DE CONTROL TÁCTICO', { fontSize: '14px', fill: '#555555', fontStyle: 'bold' }).setOrigin(0.5);
 
     this.anims.create({ key: 'walk_player', frames: this.anims.generateFrameNumbers('soldado_p', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'walk_enemy', frames: this.anims.generateFrameNumbers('enemigo_s', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
@@ -85,16 +77,16 @@ function create() {
 
     player = this.physics.add.sprite(window.innerWidth/2, window.innerHeight - PLAYER_V_OFFSET, 'soldado_p');
     player.setScale(0.8).setCollideWorldBounds(true).play('walk_player');
-    player.setBodySize(player.width * 0.25, player.height * 0.4, true); 
-    player.setOffset(65, 100); 
+    player.setBodySize(player.width * 0.25, player.height * 0.4, true).setOffset(65, 100);
+
+    shieldAura = this.add.circle(player.x, player.y, 80, 0x00ffff, 0.3).setVisible(false);
 
     bullets = this.physics.add.group({ defaultKey: 'bala' });
     enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
     enemies = this.physics.add.group();
     pickups = this.physics.add.group(); 
 
-    scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY ELITE', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
+    scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: 0`, { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
@@ -118,56 +110,55 @@ function create() {
 }
 
 /**
- * BLOQUE 4: GESTIÓN DE ENEMIGOS Y DIFICULTAD
+ * BLOQUE 4: GESTIÓN DE ENEMIGOS E IA
  */
 function spawnManager() {
-    let nivelDificultad = Math.min(Math.floor(score / 50), 15);
+    let nivel = Math.min(Math.floor(score / 50), 15);
     let randomSpawn = Math.random() * 100;
-
-    if (randomSpawn < 35) { 
-        let cantidad = Phaser.Math.Between(5, 10);
-        for(let i=0; i<cantidad; i++){
-            this.time.delayedCall(i * 200, () => { spawnEnemy.call(this, 'enemigo_soldado', nivelDificultad); });
-        }
-    } else {
-        let tipo = randomSpawn < 75 ? 'enemigo_soldado' : (randomSpawn < 88 ? 'tigre' : 'serpiente');
-        spawnEnemy.call(this, tipo, nivelDificultad);
-    }
+    let tipo = randomSpawn < 70 ? 'soldado' : (randomSpawn < 85 ? 'tigre' : 'serpiente');
+    spawnEnemy.call(this, tipo, nivel);
 }
 
 function spawnEnemy(tipo, nivel) {
     const x = Phaser.Math.Between(80, window.innerWidth - 80);
-    let enemy = enemies.create(x, -50, tipo === 'enemigo_soldado' ? 'enemigo_s' : (tipo === 'tigre' ? 'tigre_s' : 'serpiente_anim')).setScale(0.7);
+    let enemy = enemies.create(x, -80, tipo === 'soldado' ? 'enemigo_s' : (tipo === 'tigre' ? 'tigre_s' : 'serpiente_anim')).setScale(0.7);
     enemy.tipoEnemigo = tipo;
-    enemy.health = 1; 
 
-    if (tipo === 'enemigo_soldado') {
-        enemy.play('walk_enemy');
-        enemy.setVelocityY(120 + (nivel * 5));
-        let rangoIA = 100 + (nivel * 25);
-        let targetX = Phaser.Math.Clamp(enemy.x + (Math.random() < 0.5 ? -rangoIA : rangoIA), 60, window.innerWidth - 60);
-        this.tweens.add({ targets: enemy, x: targetX, duration: Math.max(2000 - (nivel * 100), 800), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    if (tipo === 'soldado') {
+        enemy.play('walk_enemy').setVelocityY(110 + (nivel * 3));
+        
+        const mover = () => {
+            if (!enemy.active) return;
+            this.tweens.add({
+                targets: enemy, x: Phaser.Math.Clamp(enemy.x + Phaser.Math.Between(-150, 150), 60, window.innerWidth - 60),
+                duration: Phaser.Math.Between(1000, 2500), ease: 'Sine.easeInOut',
+                onComplete: () => { if (enemy.active) this.time.delayedCall(500, mover); }
+            });
+        };
+        mover();
 
-        this.time.addEvent({ 
-            delay: Math.max(Phaser.Math.Between(1600, 2600) - (nivel * 110), 650), 
-            callback: () => { 
-                if (enemy.active) { 
-                    let eb = enemyBullets.get(enemy.x, enemy.y + 40); 
-                    if (eb) {
-                        eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480 + (nivel * 8));
-                        eb.body.setSize(eb.width * 0.4, eb.height * 0.4);
+        const disparar = () => {
+            if (!enemy.active || !player.active) return;
+            let rafaga = Phaser.Math.Between(1, 3);
+            for(let i=0; i<rafaga; i++) {
+                this.time.delayedCall(i * 250, () => {
+                    if (enemy.active) {
+                        let eb = enemyBullets.get(enemy.x, enemy.y + 40);
+                        if (eb) {
+                            eb.setActive(true).setVisible(true).setScale(0.18);
+                            let angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+                            this.physics.velocityFromRotation(angle, 450 + (nivel * 5), eb.body.velocity);
+                            eb.setRotation(angle + Math.PI/2);
+                        }
                     }
-                } 
-            }, 
-            loop: true 
-        });
-    } else if (tipo === 'tigre') {
-        enemy.play('run_tiger').setVelocityY(420 + (nivel * 10));
-        enemy.setBodySize(enemy.width * 0.4, enemy.height * 0.5, true);
+                });
+            }
+            this.time.delayedCall(Phaser.Math.Between(2000, 4000), disparar);
+        };
+        disparar();
     } else {
-        enemy.play('reptar_snake').setVelocityY(180 + (nivel * 5));
-        this.tweens.add({ targets: enemy, x: Phaser.Math.Clamp(enemy.x + 70, 60, window.innerWidth - 60), duration: 500, yoyo: true, repeat: -1 });
-        enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
+        enemy.setVelocityY(tipo === 'tigre' ? 420 : 180);
+        if (tipo === 'serpiente') this.tweens.add({ targets: enemy, x: enemy.x + 70, duration: 500, yoyo: true, repeat: -1 });
     }
 }
 
@@ -176,77 +167,87 @@ function spawnEnemy(tipo, nivel) {
  */
 function hitEnemy(b, e) {
     b.destroy();
-    if (e.tipoEnemigo === 'enemigo_soldado') sfxSoldado.play();
-    else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
-    else sfxSerpiente.play();
-
-    if (Math.random() < 0.01) {
-        let h = pickups.create(e.x, e.y, 'corazon').setScale(0.06);
-        h.setVelocityY(100);
-    }
-
-    e.destroy();
-    score += 10;
-    scoreText.setText('BAJAS: ' + score);
+    e.setTint(0xffffff); // Feedback visual
+    this.time.delayedCall(50, () => {
+        if (Math.random() < 0.01) pickups.create(e.x, e.y, 'corazon').setScale(0.06).setVelocityY(100);
+        if (Math.random() < 0.02) { 
+            let s = pickups.create(e.x, e.y, 'escudo').setScale(0.08).setVelocityY(100);
+            s.esEscudo = true;
+        }
+        e.destroy();
+        score += 10;
+        scoreText.setText(`${userName.toUpperCase()}: ${score}`);
+    });
 }
 
 function takeDamage(p, obj) {
+    if (isInvulnerable) return;
     obj.destroy();
     lives--;
     actualizarCorazones.call(this);
+    this.cameras.main.shake(200, 0.01); // Inmersión
     player.setTint(0xff0000);
     this.time.delayedCall(200, () => player.clearTint());
     if (lives <= 0) endGame.call(this);
 }
 
 function collectPickup(p, item) {
+    if (item.esEscudo) {
+        isInvulnerable = true;
+        shieldAura.setVisible(true);
+        player.setTint(0x00ffff);
+        this.time.delayedCall(7000, () => { 
+            isInvulnerable = false; 
+            shieldAura.setVisible(false); 
+            player.clearTint();
+        });
+    } else if (lives < 3) {
+        lives++;
+        actualizarCorazones.call(this);
+    }
     item.destroy();
-    if (lives < 3) { lives++; actualizarCorazones.call(this); }
 }
 
 /**
- * BLOQUE 6: UI Y FINAL
+ * BLOQUE 6: UI Y FINAL (RANKING FIREBASE)
  */
+async function syncRanking(finalScore) {
+    try {
+        await fetch(FIREBASE_DB_URL, { method: 'POST', body: JSON.stringify({ name: userName, score: finalScore, date: Date.now() }) });
+        const res = await fetch(FIREBASE_DB_URL);
+        const data = await res.json();
+        return Object.values(data).sort((a,b) => b.score - a.score).slice(0, 5);
+    } catch (e) { return []; }
+}
+
+async function endGame() {
+    this.physics.pause();
+    bgMusic.stop();
+    const top5 = await syncRanking(score);
+    let rankingTxt = top5.map((s, i) => `${i+1}. ${s.name}: ${s.score}`).join('\n');
+    this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 450, 550, 0x000000, 0.85).setOrigin(0.5);
+    this.add.text(window.innerWidth/2, window.innerHeight/2 - 40, `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5 GLOBAL:\n${rankingTxt}`, { fontSize: '20px', fill: '#00ff00', align: 'center' }).setOrigin(0.5);
+    const btn = this.add.text(window.innerWidth/2, window.innerHeight/2 + 200, ' REINTENTAR ', { fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: 15 }).setOrigin(0.5).setInteractive();
+    btn.on('pointerdown', () => location.reload());
+}
+
 function update(time) {
     if (isFiring && time > lastFired) {
-        // --- CALIBRACIÓN DE ARMA: Se desplaza X a la derecha (+45) y se sube Y (-110) ---
         let b = bullets.get(player.x + 45, player.y - 110); 
         if (b) { 
-            b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); 
+            b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-900); 
             sfxDisparo.play(); 
-            b.body.setSize(b.width * 0.5, b.height * 0.5);
+            let flash = this.add.circle(player.x + 45, player.y - 110, 10, 0xffff00);
+            this.time.delayedCall(40, () => flash.destroy());
         }
         lastFired = time + FIRE_RATE;
     }
-
-    enemies.children.each(e => {
-        if (e.active) {
-            if (e.x < 40) e.x = 40;
-            if (e.x > window.innerWidth - 40) e.x = window.innerWidth - 40;
-        }
-    });
-
-    [bullets, enemyBullets, enemies, pickups].forEach(group => {
-        group.children.each(c => { if (c.active && (c.y < -100 || c.y > window.innerHeight + 100)) c.destroy(); });
-    });
+    shieldAura.x = player.x; shieldAura.y = player.y;
 }
 
 function actualizarCorazones() {
     hearts.clear(true, true);
     for (let i = 0; i < lives; i++) hearts.create(window.innerWidth - 40 - (i * 35), 35, 'corazon').setScale(0.05);
-}
-
-function endGame() {
-    this.physics.pause();
-    if (bgMusic) bgMusic.stop();
-    let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
-    scores.push(score); scores.sort((a, b) => b - a);
-    localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
-    let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
-    this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 400, 500, 0x000000, 0.8).setOrigin(0.5);
-    this.add.text(window.innerWidth/2, window.innerHeight/2 - 50, text, { fontSize: '22px', fill: '#fff', align: 'center' }).setOrigin(0.5);
-    const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 180, ' VOLVER A INTENTAR ', { fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold' }).setOrigin(0.5).setInteractive();
-    btnRetry.on('pointerdown', () => location.reload());
 }
 
 </script>
