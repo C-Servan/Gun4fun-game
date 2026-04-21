@@ -29,7 +29,7 @@ let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
 
-const CONTROL_PANEL_HEIGHT = 250; // Altura de la zona táctica
+const CONTROL_PANEL_HEIGHT = 210; // Altura de la zona táctica
 const PLAYER_V_OFFSET = 320;     
 const FIRE_RATE = 450; 
 
@@ -178,7 +178,7 @@ function hitEnemy(b, e) {
     else sfxSerpiente.play();
 
     // Probabilidad de soltar corazón (10%)
-    if (Math.random() < 0.2) {
+    if (Math.random() < 0.02) {
         let h = pickups.create(e.x, e.y, 'corazon').setScale(0.06);
         h.setVelocityY(100);
     }
