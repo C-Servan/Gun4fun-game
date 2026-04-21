@@ -29,7 +29,7 @@ let isFiring = false, lastFired = 0;
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
 
-const CONTROL_PANEL_HEIGHT = 210; // Altura de la zona táctica
+const CONTROL_PANEL_HEIGHT = 200; // Tu altura táctica de 200
 const PLAYER_V_OFFSET = 320;     
 const FIRE_RATE = 450; 
 
@@ -63,7 +63,7 @@ function preload() {
     this.load.audio('sfx_soldado', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_soldado.mp3');
     this.load.audio('sfx_tigre', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_tigre.mp3');
     this.load.audio('sfx_serpiente', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/muerte_serpiente.mp3');
-} 
+}
 
 /**
  * BLOQUE 3: INICIALIZACIÓN
@@ -76,7 +76,6 @@ function create() {
     sfxTigre = this.sound.add('sfx_tigre', { volume: 0.6 });
     sfxSerpiente = this.sound.add('sfx_serpiente', { volume: 0.6 });
 
-    // --- PANEL MILITAR ANCHO ---
     const panelUI = this.add.graphics();
     panelUI.fillStyle(0x222222, 0.7);
     panelUI.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
@@ -107,11 +106,12 @@ function create() {
     pickups = this.physics.add.group(); 
 
     scoreText = this.add.text(20, 20, 'BAJAS: 0', { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
+    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY ELITE', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
-    this.time.addEvent({ delay: 1000, callback: spawnManager, callbackScope: this, loop: true });
+    // Ajuste de spawn para oleadas
+    this.time.addEvent({ delay: 2500, callback: spawnManager, callbackScope: this, loop: true });
 
     this.input.on('pointerdown', (p) => { 
         if (p.y > window.innerHeight - CONTROL_PANEL_HEIGHT) {
@@ -131,20 +131,24 @@ function create() {
 }
 
 /**
- * BLOQUE 4: GESTIÓN DE ENEMIGOS Y DIFICULTAD
+ * BLOQUE 4: GESTIÓN DE OLEADAS Y DIFICULTAD
  */
 function spawnManager() {
-    let nivelDificultad = Math.min(Math.floor(score / 50), 10);
+    let nivelDificultad = Math.min(Math.floor(score / 50), 15);
     let randomSpawn = Math.random() * 100;
-    
-    // Probabilidad: 5 soldados por cada tigre o serpiente
-    // 83% Soldados (~5/6) | 8.5% Tigres (~0.5/6) | 8.5% Serpientes (~0.5/6)
-    if (randomSpawn < 83) {
-        spawnEnemy.call(this, 'enemigo_soldado', nivelDificultad);
-    } else if (randomSpawn < 91.5) {
-        spawnEnemy.call(this, 'tigre', nivelDificultad);
+
+    // --- NUEVO: OLEADAS ALEATORIAS DE 5 A 10 SOLDADOS ---
+    if (randomSpawn < 35) { // 35% de probabilidad de oleada
+        let cantidad = Phaser.Math.Between(5, 10);
+        for(let i=0; i<cantidad; i++){
+            this.time.delayedCall(i * 200, () => {
+                spawnEnemy.call(this, 'enemigo_soldado', nivelDificultad);
+            });
+        }
     } else {
-        spawnEnemy.call(this, 'serpiente', nivelDificultad);
+        // Spawn normal mezclado
+        let tipo = randomSpawn < 75 ? 'enemigo_soldado' : (randomSpawn < 88 ? 'tigre' : 'serpiente');
+        spawnEnemy.call(this, tipo, nivelDificultad);
     }
 }
 
@@ -157,12 +161,13 @@ function spawnEnemy(tipo, nivel) {
     if (tipo === 'enemigo_soldado') {
         enemy.play('walk_enemy');
         enemy.setVelocityY(120 + (nivel * 5));
-        let rangoIA = 100 + (nivel * 25);
         
-        // --- CORRECCIÓN ZIGZAG: Ajuste de límites dinámicos ---
-        let targetX = enemy.x + (Math.random() < 0.5 ? -rangoIA : rangoIA);
-        // Evitar que el destino se salga de la pantalla (Margen 50px)
-        targetX = Phaser.Math.Clamp(targetX, 50, window.innerWidth - 50);
+        // --- NUEVO: 2 VIDAS ---
+        enemy.health = 2; 
+        
+        let rangoIA = 100 + (nivel * 25);
+        // Clamping para que el zigzag no se salga
+        let targetX = Phaser.Math.Clamp(enemy.x + (Math.random() < 0.5 ? -rangoIA : rangoIA), 60, window.innerWidth - 60);
 
         this.tweens.add({ 
             targets: enemy, 
@@ -173,33 +178,29 @@ function spawnEnemy(tipo, nivel) {
             ease: 'Sine.easeInOut' 
         });
 
+        // --- NUEVO: CADENCIA VARIABLE ---
+        let baseDelay = Phaser.Math.Between(1600, 2600);
+        let fireDelay = Math.max(baseDelay - (nivel * 110), 650);
+
         this.time.addEvent({ 
-            delay: Phaser.Math.Between(1600, 2600), 
+            delay: fireDelay, 
             callback: () => { 
                 if (enemy.active) { 
                     let eb = enemyBullets.get(enemy.x, enemy.y + 40); 
-                    if (eb) eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480); 
+                    if (eb) eb.setActive(true).setVisible(true).setScale(0.18).setVelocityY(480 + (nivel * 8)); 
                 } 
             }, 
             loop: true 
         });
     } else if (tipo === 'tigre') {
-        enemy.play('run_tiger').setVelocityY(420);
+        enemy.play('run_tiger').setVelocityY(420 + (nivel * 10));
+        enemy.health = 1;
         enemy.setBodySize(enemy.width * 0.4, enemy.height * 0.5, true);
     } else {
-        enemy.play('reptar_snake').setVelocityY(180);
-        
-        // --- CORRECCIÓN SERPIENTE: Zigzag controlado ---
-        let snakeTargetX = enemy.x + 70;
-        if (snakeTargetX > window.innerWidth - 50) snakeTargetX = enemy.x - 70;
-
-        this.tweens.add({ 
-            targets: enemy, 
-            x: snakeTargetX, 
-            duration: 500, 
-            yoyo: true, 
-            repeat: -1 
-        });
+        enemy.play('reptar_snake').setVelocityY(180 + (nivel * 5));
+        enemy.health = 1;
+        let snakeTargetX = Phaser.Math.Clamp(enemy.x + 70, 60, window.innerWidth - 60);
+        this.tweens.add({ targets: enemy, x: snakeTargetX, duration: 500, yoyo: true, repeat: -1 });
         enemy.setBodySize(enemy.width * 0.3, enemy.height * 0.4, true);
     }
 }
@@ -208,16 +209,29 @@ function spawnEnemy(tipo, nivel) {
  * BLOQUE 5: COMBATE Y ITEMS
  */
 function hitEnemy(b, e) {
+    b.destroy(); // La bala del jugador siempre se gasta
+    
+    // --- NUEVO: SISTEMA DE DAÑO ---
+    e.health--;
+    
+    if (e.health > 0) {
+        e.setTint(0xffffff); // Flash de daño
+        this.time.delayedCall(80, () => e.clearTint());
+        return; // Sigue vivo
+    }
+
+    // Efectos al morir
     if (e.tipoEnemigo === 'enemigo_soldado') sfxSoldado.play();
     else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
     else sfxSerpiente.play();
 
-    if (Math.random() < 0.02) {
+    // Tu probabilidad del 10% de corazón
+    if (Math.random() < 0.10) {
         let h = pickups.create(e.x, e.y, 'corazon').setScale(0.06);
         h.setVelocityY(100);
     }
 
-    b.destroy(); e.destroy();
+    e.destroy();
     score += 10;
     scoreText.setText('BAJAS: ' + score);
 }
@@ -249,8 +263,7 @@ function update(time) {
         lastFired = time + FIRE_RATE;
     }
 
-    // --- CORRECCIÓN DE SEGURIDAD EN TIEMPO REAL ---
-    // Si por alguna razón física un enemigo intenta salirse, lo empujamos de vuelta
+    // --- NUEVO: MURO INVISIBLE DE SEGURIDAD ---
     enemies.children.each(e => {
         if (e.active) {
             if (e.x < 40) e.x = 40;
