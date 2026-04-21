@@ -274,7 +274,7 @@ function endGame() {
     let scores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
     scores.push(score); scores.sort((a, b) => b - a);
     localStorage.setItem('gun4fun_ranking', JSON.stringify(scores.slice(0, 5)));
-    let text = OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n + scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
+    let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5:\n` + scores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
     this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 400, 500, 0x000000, 0.8).setOrigin(0.5);
     this.add.text(window.innerWidth/2, window.innerHeight/2 - 50, text, { fontSize: '22px', fill: '#fff', align: 'center' }).setOrigin(0.5);
     const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 180, ' VOLVER A INTENTAR ', { fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold' }).setOrigin(0.5).setInteractive();
