@@ -102,7 +102,7 @@ function create() {
     player.setOffset(65, 100); 
 
     // Aura visual del escudo
-    shieldAura = this.add.circle(player.x, player.y, 80, 0x00ffff, 0.3).setVisible(false);
+    shieldAura = this.add.circle(player.x - 15, player.y, 80, 0x00ffff, 0.3).setVisible(false);
 
     bullets = this.physics.add.group({ defaultKey: 'bala' });
     enemyBullets = this.physics.add.group({ defaultKey: 'bala_roja' });
@@ -251,7 +251,7 @@ function activarEscudo() {
     isInvulnerable = true;
     shieldAura.setVisible(true);
     player.setTint(0x00ffff);
-    this.time.delayedCall(7000, () => { // 7 segundos de escudo
+    this.time.delayedCall(10000, () => { // 10 segundos de escudo
         isInvulnerable = false;
         shieldAura.setVisible(false);
         player.clearTint();
@@ -276,20 +276,20 @@ async function syncRankingFirebase(finalScore) {
 function update(time) {
     if (isFiring && time > lastFired) {
         // AJUSTE DE PRECISIÓN: Movido a la izquierda (+28 en lugar de +45) para alinear con el arma
-        let b = bullets.get(player.x + 28, player.y - 110); 
+        let b = bullets.get(player.x + 45, player.y - 110); 
         if (b) { 
             b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); 
             sfxDisparo.play(); 
             b.body.setSize(b.width * 0.5, b.height * 0.5);
             // CAMBIO 3: Destello alineado exactamente con la nueva posición de la bala (X+28)
-            let flash = this.add.circle(player.x + 28, player.y - 110, 15, 0xffff00);
+            let flash = this.add.circle(player.x + 30, player.y - 110, 15, 0xffff00);
             this.time.delayedCall(40, () => flash.destroy());
         }
         lastFired = time + FIRE_RATE;
     }
 
     // El aura sigue al jugador
-    if (shieldAura) { shieldAura.x = player.x; shieldAura.y = player.y; }
+    if (shieldAura) { shieldAura.x = player.x - 15; shieldAura.y = player.y; }
 
     enemies.children.each(e => {
         if (e.active) {
