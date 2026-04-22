@@ -276,13 +276,13 @@ async function syncRankingFirebase(finalScore) {
 function update(time) {
     if (isFiring && time > lastFired) {
         // AJUSTE DE PRECISIÓN: Movido a la izquierda (+28 en lugar de +45) para alinear con el arma
-        let b = bullets.get(player.x + 45, player.y - 110); 
+        let b = bullets.get(player.x + 45, player.y - 95); 
         if (b) { 
             b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); 
             sfxDisparo.play(); 
             b.body.setSize(b.width * 0.5, b.height * 0.5);
             // CAMBIO 3: Destello alineado exactamente con la nueva posición de la bala (X+28)
-            let flash = this.add.circle(player.x + 30, player.y - 110, 15, 0xffff00);
+            let flash = this.add.circle(player.x + 30, player.y - 95, 15, 0xffff00);
             this.time.delayedCall(40, () => flash.destroy());
         }
         lastFired = time + FIRE_RATE;
