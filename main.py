@@ -176,7 +176,7 @@ def send_welcome(message):
 def list_games(message):
     borrar_mensajes_anteriores(message.chat.id)
     
-    m1 = bot.send_message(message.chat.id, "🎯 MISIÓN 01: ENTRENAMIENTO BÁSICO", parse_mode="Markdown")
+    m1 = bot.send_message(message.chat.id, "🎯 MISIÓN 01: CAMPO DE ENTRENAMIENTO", parse_mode="Markdown")
     g1 = bot.send_game(message.chat.id, "shooter_01")
     m2 = bot.send_message(message.chat.id, "🎯 MISIÓN 2: OPERACIÓN JUNGLE FURY", parse_mode="Markdown")
     g2 = bot.send_game(message.chat.id, "shooter_02")
