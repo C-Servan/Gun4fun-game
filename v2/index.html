@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style> 
         body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
+        /* NUEVO: Forzamos al canvas a ocupar el 100% real del visor */
+        canvas { display: block; width: 100vw !important; height: 100vh !important; }
     </style>
 </head>
 <body>
@@ -23,6 +26,11 @@ const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
     height: window.innerHeight,
+    // NUEVO: Sistema de escalado insertado sin borrar lo anterior
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
     physics: { default: 'arcade', arcade: { debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -47,7 +55,7 @@ function preload() {
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
     // CAMBIO 1: Nuevo icono de escudo azul (Corregido el "dedo arriba")
-    this.load.image('escudo', 'https://cdn-icons-png.flaticon.com/512/2091/2091665.png'); 
+    this.load.image('escudo', 'https://cdn-icons-png.flaticon.com/512/15548/15548420.png'); 
 
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet('soldado_p', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/soldado_player.png', { frameWidth: 180, frameHeight: 256, margin: 10, spacing: 0 });
@@ -110,7 +118,7 @@ function create() {
     pickups = this.physics.add.group(); 
 
     scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: 0`, { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY ELITE', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
+    missionText = this.add.text(20, 50, 'MISIÓN: JUNGLE FURY', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' });
     hearts = this.add.group();
     actualizarCorazones.call(this);
 
