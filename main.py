@@ -3,6 +3,7 @@ import telebot
 import random
 import time
 import pytz
+import requests  # <-- Añadido para consultar Firebase
 from datetime import datetime, timedelta
 from flask import Flask
 from threading import Thread
@@ -28,12 +29,32 @@ def keep_alive():
 TOKEN = os.getenv('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# ID DEL GRUPO DE PRUEBA CONFIGURADO
+# URL de tu base de datos Firebase (la misma que usa el juego)
+FIREBASE_DB_URL = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/ranking.json"
 ID_GRUPO_OBJETIVO = -1002035446864
+
+# --- NUEVO: SISTEMA DE SEGUIMIENTO DE MENSAJES PARA LIMPIEZA ---
+# Diccionario para rastrear los mensajes enviados por el bot en cada chat
+mensajes_previos = {}
+
+def borrar_mensajes_anteriores(chat_id):
+    """Elimina los mensajes previos registrados del bot en el chat."""
+    if chat_id in mensajes_previos:
+        for msg_id in mensajes_previos[chat_id]:
+            try:
+                bot.delete_message(chat_id, msg_id)
+            except Exception:
+                pass
+        mensajes_previos[chat_id] = []
+
+def registrar_mensaje(chat_id, msg_id):
+    """Guarda el ID del mensaje para borrarlo en la siguiente interacción."""
+    if chat_id not in mensajes_previos:
+        mensajes_previos[chat_id] = []
+    mensajes_previos[chat_id].append(msg_id)
 
 # --- BASE DE DATOS: 80 FRASES DEL INSTRUCTOR ---
 FRASES_INSTRUCTOR = [
-    # Bloque A: Motivación
     "¡ATENCIÓN! He revisado los registros y parecen soldados de verdad. ¡Sigan así!",
     "¡Reclutas, el informe de bajas es impresionante! No se relajen.",
     "¡Escuchen bien! El operativo destacado está marcando el paso.",
@@ -54,7 +75,6 @@ FRASES_INSTRUCTOR = [
     "¡Impresionante! Habéis batido el récord de la unidad.",
     "¡A la carga! Que el mundo sepa quién domina esta jungla.",
     "Soldados, habéis cumplido el objetivo. ¡A disfrutar del botín!",
-    # Bloque B: Sarcasmo
     "¡Reclutas! He visto tortugas con más iniciativa. ¡Muevan el culo!",
     "¿Eso es todo? Mi abuela disparaba mejor y tenía menos lag.",
     "Soldados, el objetivo es eliminar enemigos, no hacerse selfies.",
@@ -75,7 +95,6 @@ FRASES_INSTRUCTOR = [
     "La próxima vez, aseguraos de llevar el seguro quitado.",
     "¿Eso ha sido un disparo o un estornudo? ¡Meteos en la pelea!",
     "El Instructor está decepcionado. El Top 5 salva el honor.",
-    # Bloque C: Estilo Gun4Fun
     "¡Soldados! La Misión 2 no se completa sola. Vigilo.",
     "¡Recluta del Top 1, invite a una ronda! Menuda marca.",
     "¡A formar! El ranking está listo. ¡Fuego a discreción!",
@@ -96,7 +115,6 @@ FRASES_INSTRUCTOR = [
     "¡Fuego! El ranking semanal es el único informe que importa.",
     "Soldados, haced que cada bala cuente. No regalo puntos.",
     "¡Gun4Fun al frente! Demostrad que sois de élite.",
-    # Bloque D: Breves
     "¡Sin piedad! El ranking no perdona debilidades.",
     "¡Rompan filas! El Top 5 les espera.",
     "¡Instructor informando! Tenemos héroes aquí.",
@@ -120,72 +138,56 @@ FRASES_INSTRUCTOR = [
     "¡Instructor fuera! Al combate."
 ]
 
-# --- 3. NUEVO: HILO DE AUTOMATIZACIÓN PROGRAMADA (15:00) ---
+# --- 3. HILO DE AUTOMATIZACIÓN PROGRAMADA (15:00) ---
 def tarea_diaria_programada():
     while True:
-        # Definimos la zona horaria de España
         zona_horaria = pytz.timezone('Europe/Madrid')
         ahora = datetime.now(zona_horaria)
-        
-        # Programamos para las 15:00:00 de hoy
         proxima_cita = ahora.replace(hour=15, minute=0, second=0, microsecond=0)
-        
-        # Si ya pasaron las 15:00, programamos para mañana
         if ahora >= proxima_cita:
             proxima_cita += timedelta(days=1)
-        
-        # Calculamos cuántos segundos faltan
         segundos_para_esperar = (proxima_cita - ahora).total_seconds()
-        print(f"Instructor esperando {segundos_para_esperar} segundos hasta las 15:00.")
-        
-        # El bot duerme hasta la hora señalada
         time.sleep(segundos_para_esperar)
-        
         try:
+            # Borrar el reporte de ayer antes de enviar el de hoy
+            borrar_mensajes_anteriores(ID_GRUPO_OBJETIVO)
+            
             frase_aviso = random.choice(FRASES_INSTRUCTOR)
             mensaje = f"🪖 REPORTE DIARIO DE LAS 15:00 🪖\n\n\"{frase_aviso}\"\n\n¡Soldados, a las armas! Usad /game para actualizar el ranking."
-            bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
-            # Dormimos un poco después de enviar para evitar duplicados por milisegundos
+            enviado = bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
+            registrar_mensaje(ID_GRUPO_OBJETIVO, enviado.message_id)
             time.sleep(60) 
         except Exception as e:
-            print(f"Error en tarea programada: {e}")
             time.sleep(10)
 
-# Iniciamos el hilo
 t_diaria = Thread(target=tarea_diaria_programada)
 t_diaria.daemon = True
 t_diaria.start()
 
-# COMANDO SECRETO PARA FORZAR EL MENSAJE AHORA MISMO
-@bot.message_handler(commands=['test_aviso'])
-def test_aviso(message):
-    # Solo tú o los admins deberían poder usarlo si quisieras, 
-    # pero para la prueba lo dejamos libre
-    try:
-        frase_aviso = random.choice(FRASES_INSTRUCTOR)
-        mensaje = f"🚀 PRUEBA DE DESPLIEGUE FORZADA 🚀\n\n\"{frase_aviso}\"\n\nSoldados, el sistema de aviso automático funciona. ¡A las armas!"
-        bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
-        bot.reply_to(message, "✅ Mensaje enviado al grupo de prueba.")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-        
 # --- 4. MANEJADORES DE COMANDOS ---
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. ¡Estás listo soldado!")
+    borrar_mensajes_anteriores(message.chat.id)
+    enviado = bot.reply_to(message, "¡Hola! Soy el Instructor de Gun4fun. Usa /game para empezar en el campo de entrenamiento. ¡Estás listo soldado!")
+    registrar_mensaje(message.chat.id, enviado.message_id)
 
 @bot.message_handler(commands=['game'])
 def list_games(message):
-    bot.send_message(message.chat.id, "🎯 MISIÓN 01: ENTRENAMIENTO BÁSICO", parse_mode="Markdown")
-    bot.send_game(message.chat.id, "shooter_01")
-
-    bot.send_message(message.chat.id, "🎯 MISIÓN 2: OPERACIÓN JUNGLE FURY", parse_mode="Markdown")
-    bot.send_game(message.chat.id, "shooter_02")
-
+    borrar_mensajes_anteriores(message.chat.id)
+    
+    m1 = bot.send_message(message.chat.id, "🎯 MISIÓN 01: ENTRENAMIENTO BÁSICO", parse_mode="Markdown")
+    g1 = bot.send_game(message.chat.id, "shooter_01")
+    m2 = bot.send_message(message.chat.id, "🎯 MISIÓN 2: OPERACIÓN JUNGLE FURY", parse_mode="Markdown")
+    g2 = bot.send_game(message.chat.id, "shooter_02")
+    
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🏆 VER RANKING DE COMBATE", callback_data="ver_ranking"))
-    bot.send_message(message.chat.id, "📊 ESTADÍSTICAS DE CAMPAÑA", reply_markup=markup)
+    stats = bot.send_message(message.chat.id, "📊 ESTADÍSTICAS DE CAMPAÑA", reply_markup=markup)
+    
+    # Registrar todos los mensajes nuevos para que se borren en la próxima llamada
+    for m in [m1, g1, m2, g2, stats]:
+        registrar_mensaje(message.chat.id, m.message_id)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -193,9 +195,30 @@ def callback_handler(call):
     nombre_soldado = user.username if user.username else user.first_name
 
     if call.data == 'ver_ranking':
-        frase = random.choice(FRASES_INSTRUCTOR)
-        ranking_text = f"🪖 {frase}\n\n1. @Comandante - 5000\n2. @Soldado_Rambo - 4200\n3. @Elite_Sniper - 3800\n\n¡Vuelve a la carga!"
-        bot.answer_callback_query(call.id, text=ranking_text, show_alert=True)
+        try:
+            response = requests.get(FIREBASE_DB_URL)
+            data = response.json()
+            
+            if data:
+                ranking_list = [v for k, v in data.items() if isinstance(v, dict) and 'score' in v]
+                ranking_sorted = sorted(ranking_list, key=lambda x: x['score'], reverse=True)
+                top_5 = ranking_sorted[:5]
+                
+                frase = random.choice(FRASES_INSTRUCTOR)
+                cuerpo_ranking = ""
+                for i, registro in enumerate(top_5):
+                    nombre = registro.get('name', 'Anónimo')
+                    score_val = registro.get('score', 0)
+                    cuerpo_ranking += f"{i+1}. {nombre} - {score_val}\n"
+                
+                ranking_text = f"🪖 {frase}\n\n{cuerpo_ranking}\n¡Vuelve a la carga!"
+            else:
+                ranking_text = "🪖 Aún no hay registros de combate. ¡Sé el primero!"
+            
+            bot.answer_callback_query(call.id, text=ranking_text, show_alert=True)
+            
+        except Exception as e:
+            bot.answer_callback_query(call.id, text="⚠️ Error de comunicación con la base de datos.", show_alert=True)
     
     elif call.game_short_name == 'shooter_01':
         bot.answer_callback_query(call.id, url=f"https://c-servan.github.io/Gun4fun-game/v1/?user={nombre_soldado}")
