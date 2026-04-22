@@ -3,29 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0, viewport-fit=cover">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style> 
-        body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
-        /* NUEVO: Forzamos al canvas a ocupar el 100% real del visor */
-        canvas { display: block; width: 100vw !important; height: 100vh !important; }
+        /* BLINDAJE 2: CSS para anular gestos del navegador */
+        * { 
+            touch-action: none; 
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none; 
+            user-select: none; 
+        }
+        body { 
+            margin: 0; 
+            background: #1a2f1a; 
+            overflow: hidden; 
+            position: fixed; /* Evita rebote en iOS */
+            width: 100%; 
+            height: 100%; 
+        } 
+        canvas { 
+            display: block; 
+            width: 100vw !important; 
+            height: 100vh !important; 
+        }
     </style>
 </head>
 <body>
 <script>
-// BLOQUE ANTI-ZOOM PARA ANDROID/IPHONE
-document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-let lastTouch = 0;
+/**
+ * BLINDAJE 3: INTERCEPTOR DE EVENTOS (JavaScript)
+ * Captura y anula el zoom antes de que el navegador responda.
+ */
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+let lastTouchTime = 0;
 document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTouch <= 300) e.preventDefault();
-    lastTouch = now;
+    if (now - lastTouchTime <= 300) e.preventDefault();
+    lastTouchTime = now;
 }, false);
 
 /**
  * BLOQUE 1: CONFIGURACIÓN Y VARIABLES
  */
-// Configuración Firebase (Ranking Global)
 const FIREBASE_DB_URL = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/ranking.json";
 const urlParams = new URLSearchParams(window.location.search);
 const userName = urlParams.get('user') || 'Soldado';
@@ -34,7 +56,6 @@ const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
     height: window.innerHeight,
-    // NUEVO: Sistema de escalado insertado sin borrar lo anterior
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
@@ -46,7 +67,7 @@ const config = {
 const game = new Phaser.Game(config);
 
 let player, enemies, bullets, enemyBullets, pickups, score = 0, scoreText, missionText, hearts, lives = 3;
-let isFiring = false, lastFired = 0, isInvulnerable = false, shieldAura; // Variables Escudo
+let isFiring = false, lastFired = 0, isInvulnerable = false, shieldAura; 
 let bgMusic, sfxDisparo, sfxSoldado, sfxTigre, sfxSerpiente;
 let musicStarted = false;
 
@@ -62,7 +83,6 @@ function preload() {
     this.load.image('bala', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala.png');
     this.load.image('bala_roja', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/bala_roja.png');
     this.load.image('corazon', 'https://cdn-icons-png.flaticon.com/512/833/833472.png');
-    // CAMBIO 1: Nuevo icono de escudo azul (Corregido el "dedo arriba")
     this.load.image('escudo', 'https://cdn-icons-png.flaticon.com/512/15548/15548420.png'); 
 
     this.load.spritesheet('serpiente_anim', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/serpiente.png', { frameWidth: 256, frameHeight: 256 });
@@ -99,12 +119,8 @@ function create() {
     panelUI.fillTriangle(30, arrowY, 60, arrowY - 25, 60, arrowY + 25);
     panelUI.fillTriangle(window.innerWidth - 30, arrowY, window.innerWidth - 60, arrowY - 25, window.innerWidth - 60, arrowY + 25);
 
-    // CAMBIO 2: Letras del panel más grandes y centradas verticalmente en el cuadro
     this.add.text(window.innerWidth/2, window.innerHeight - (CONTROL_PANEL_HEIGHT / 2), 'ZONA DE CONTROL TÁCTICO', { 
-        fontSize: '22px', 
-        fill: '#ffffff', 
-        fontStyle: 'bold',
-        alpha: 0.6
+        fontSize: '22px', fill: '#ffffff', fontStyle: 'bold', alpha: 0.6 
     }).setOrigin(0.5);
 
     this.anims.create({ key: 'walk_player', frames: this.anims.generateFrameNumbers('soldado_p', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
@@ -117,7 +133,6 @@ function create() {
     player.setBodySize(player.width * 0.25, player.height * 0.4, true); 
     player.setOffset(65, 100); 
 
-    // Aura visual del escudo
     shieldAura = this.add.circle(player.x - 15, player.y, 80, 0x00ffff, 0.3).setVisible(false);
 
     bullets = this.physics.add.group({ defaultKey: 'bala' });
@@ -155,7 +170,6 @@ function create() {
 function spawnManager() {
     let nivelDificultad = Math.min(Math.floor(score / 50), 15);
     let randomSpawn = Math.random() * 100;
-
     if (randomSpawn < 35) { 
         let cantidad = Phaser.Math.Between(5, 10);
         for(let i=0; i<cantidad; i++){
@@ -176,12 +190,9 @@ function spawnEnemy(tipo, nivel) {
     if (tipo === 'enemigo_soldado') {
         enemy.play('walk_enemy');
         enemy.setVelocityY(120 + (nivel * 5));
-        
-        // IA DE MOVIMIENTO MÁS REAL (Seno suavizado)
         let targetX = Phaser.Math.Clamp(enemy.x + Phaser.Math.Between(-150, 150), 60, window.innerWidth - 60);
         this.tweens.add({ targets: enemy, x: targetX, duration: Phaser.Math.Between(1500, 3000), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-        // DISPARO CON APUNTADO AL JUGADOR
         this.time.addEvent({ 
             delay: Math.max(Phaser.Math.Between(1600, 2600) - (nivel * 110), 800), 
             callback: () => { 
@@ -189,15 +200,13 @@ function spawnEnemy(tipo, nivel) {
                     let eb = enemyBullets.get(enemy.x, enemy.y + 40); 
                     if (eb) {
                         eb.setActive(true).setVisible(true).setScale(0.18);
-                        // Cálculo de ángulo hacia el jugador
                         let angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
                         this.physics.velocityFromRotation(angle, 480 + (nivel * 8), eb.body.velocity);
                         eb.setRotation(angle + Math.PI/2);
                         eb.body.setSize(eb.width * 0.4, eb.height * 0.4);
                     }
                 } 
-            }, 
-            loop: true 
+            }, loop: true 
         });
     } else if (tipo === 'tigre') {
         enemy.play('run_tiger').setVelocityY(420 + (nivel * 10));
@@ -218,17 +227,13 @@ function hitEnemy(b, e) {
     else if (e.tipoEnemigo === 'tigre') sfxTigre.play();
     else sfxSerpiente.play();
 
-    // Feedback visual al impactar
     e.setTint(0xffffff);
     this.time.delayedCall(50, () => { if(e.active) e.clearTint(); });
 
-    // Probabilidades de Items
     let rand = Math.random();
-    if (rand < 0.01) { // Corazón
-        let h = pickups.create(e.x, e.y, 'corazon').setScale(0.06);
-        h.setVelocityY(100);
-    } else if (rand < 0.03) { // Escudo (2% probabilidad)
-        // CAMBIO 1.2: Ajustado el tamaño para que se vea mejor al caer
+    if (rand < 0.01) { 
+        pickups.create(e.x, e.y, 'corazon').setScale(0.06).setVelocityY(100);
+    } else if (rand < 0.03) { 
         let s = pickups.create(e.x, e.y, 'escudo').setScale(0.1).setVelocityY(100);
         s.isShield = true;
     }
@@ -239,27 +244,19 @@ function hitEnemy(b, e) {
 }
 
 function takeDamage(p, obj) {
-    if (isInvulnerable) return; // Si hay escudo, no hace nada
-
+    if (isInvulnerable) return; 
     obj.destroy();
     lives--;
     actualizarCorazones.call(this);
-    
-    // Feedback de daño: Shake e inmersión
     this.cameras.main.shake(200, 0.01);
     player.setTint(0xff0000);
     this.time.delayedCall(200, () => player.clearTint());
-    
     if (lives <= 0) endGame.call(this);
 }
 
 function collectPickup(p, item) {
-    if (item.isShield) {
-        activarEscudo.call(this);
-    } else if (lives < 3) {
-        lives++;
-        actualizarCorazones.call(this);
-    }
+    if (item.isShield) activarEscudo.call(this);
+    else if (lives < 3) { lives++; actualizarCorazones.call(this); }
     item.destroy();
 }
 
@@ -267,7 +264,7 @@ function activarEscudo() {
     isInvulnerable = true;
     shieldAura.setVisible(true);
     player.setTint(0x00ffff);
-    this.time.delayedCall(10000, () => { // 10 segundos de escudo
+    this.time.delayedCall(10000, () => { 
         isInvulnerable = false;
         shieldAura.setVisible(false);
         player.clearTint();
@@ -291,20 +288,17 @@ async function syncRankingFirebase(finalScore) {
 
 function update(time) {
     if (isFiring && time > lastFired) {
-        // AJUSTE DE PRECISIÓN: Movido a la izquierda (+28 en lugar de +45) para alinear con el arma
         let b = bullets.get(player.x + 45, player.y - 95); 
         if (b) { 
             b.setActive(true).setVisible(true).setScale(0.18).setVelocityY(-850); 
             sfxDisparo.play(); 
             b.body.setSize(b.width * 0.5, b.height * 0.5);
-            // CAMBIO 3: Destello alineado exactamente con la nueva posición de la bala (X+28)
             let flash = this.add.circle(player.x + 30, player.y - 95, 15, 0xffff00);
             this.time.delayedCall(40, () => flash.destroy());
         }
         lastFired = time + FIRE_RATE;
     }
 
-    // El aura sigue al jugador
     if (shieldAura) { shieldAura.x = player.x + 15; shieldAura.y = player.y; }
 
     enemies.children.each(e => {
@@ -328,22 +322,25 @@ async function endGame() {
     this.physics.pause();
     if (bgMusic) bgMusic.stop();
 
-    // Sincronización con Firebase
     const top5Global = await syncRankingFirebase(score);
-    
-    // Ranking local como backup
     let localScores = JSON.parse(localStorage.getItem('gun4fun_ranking')) || [];
     localScores.push(score); localScores.sort((a, b) => b - a);
     localStorage.setItem('gun4fun_ranking', JSON.stringify(localScores.slice(0, 5)));
 
-    let rankingMostrado = top5Global.length > 0 ? top5Global.map((s, i) => `${i+1}. ${s.name}: ${s.score}`).join('\n') : localScores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
+    let rankingMostrado = top5Global.length > 0 ? 
+        top5Global.map((s, i) => `${i+1}. ${s.name}: ${s.score}`).join('\n') : 
+        localScores.slice(0,5).map((s, i) => `${i+1}. ${s} pts`).join('\n');
 
     let text = `OPERACIÓN FALLIDA\n\nBAJAS: ${score}\n\nTOP 5 GLOBAL:\n` + rankingMostrado;
     
     this.add.rectangle(window.innerWidth/2, window.innerHeight/2, 450, 550, 0x000000, 0.85).setOrigin(0.5);
-    this.add.text(window.innerWidth/2, window.innerHeight/2 - 40, text, { fontSize: '20px', fill: '#00ff00', align: 'center', lineSpacing: 8 }).setOrigin(0.5);
+    this.add.text(window.innerWidth/2, window.innerHeight/2 - 40, text, { 
+        fontSize: '20px', fill: '#00ff00', align: 'center', lineSpacing: 8 
+    }).setOrigin(0.5);
     
-    const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 200, ' VOLVER A INTENTAR ', { fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold' }).setOrigin(0.5).setInteractive();
+    const btnRetry = this.add.text(window.innerWidth/2, window.innerHeight/2 + 200, ' VOLVER A INTENTAR ', { 
+        fontSize: '28px', fill: '#000', backgroundColor: '#00ff00', padding: { x: 20, y: 10 }, fontStyle: 'bold' 
+    }).setOrigin(0.5).setInteractive();
     btnRetry.on('pointerdown', () => location.reload());
 }
 
