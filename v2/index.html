@@ -289,7 +289,7 @@ function update(time) {
     }
 
     // El aura sigue al jugador
-    if (shieldAura) { shieldAura.x = player.x - 15; shieldAura.y = player.y; }
+    if (shieldAura) { shieldAura.x = player.x + 15; shieldAura.y = player.y; }
 
     enemies.children.each(e => {
         if (e.active) {
