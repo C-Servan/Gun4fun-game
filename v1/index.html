@@ -15,7 +15,7 @@
  * BLOQUE 1: CONFIGURACIÓN Y VARIABLES
  */
 // ESPACIO RESERVADO: Configuración Firebase y Parámetros
-const FIREBASE_DB_URL_M1 = "TU_URL_AQUI/mision1.json"; // Configurar para Misión 1
+const FIREBASE_DB_URL_M1 = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/mision1.json"; 
 const urlParams = new URLSearchParams(window.location.search);
 const userName = urlParams.get('user') || 'Recluta';
 
@@ -44,8 +44,8 @@ const CONTROL_PANEL_HEIGHT = 180;
  * BLOQUE 2: GESTIÓN DE ACTIVOS
  */
 function preload() {
-    // ESPACIO RESERVADO: URLs de Assets (Cambiar por tus links de GitHub cuando los tengas)
-    this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_mision1.jpg'); // Placeholder
+    // URL Actualizada con el fondo oficial de tu GitHub
+    this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/b7714c20dec6d2fd163d80c4d8b031cb9bc12467/assets/fondo_campo_de_tiro.jpg');
     this.load.image('mira', 'https://cdn-icons-png.flaticon.com/512/25/25360.png'); // Icono de mira
     this.load.image('diana_grunt', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/diana_madera.png');
     this.load.image('sargento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/sargento_pixel.png');
@@ -59,8 +59,12 @@ function preload() {
  * BLOQUE 3: INICIALIZACIÓN
  */
 function create() {
-    // Fondo adaptado a la pantalla actual (Igual que Misión 2)
-    this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento').setDisplaySize(window.innerWidth, window.innerHeight);
+    // Implementación de fondo con escalado responsivo (Mejorado para móvil)
+    let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento');
+    let scaleX = window.innerWidth / bg.width;
+    let scaleY = window.innerHeight / bg.height;
+    let scale = Math.max(scaleX, scaleY);
+    bg.setScale(scale).setScrollFactor(0);
 
     // Grupos
     targets = this.physics.add.group();
@@ -184,7 +188,7 @@ function actualizarInterfaz() {
 
 function update() {
     // Limpieza de objetos fuera de rango (como en M2)
-    targets.children.each(c => { if (c.active && c.y > window.innerHeight) c.destroy(); });
+    targets.children.each(c => { if (c.active && (c.y > window.innerHeight || c.y < -100)) c.destroy(); });
 }
 
 </script>
