@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Gun4Fun: Jungle Fury</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style> 
         body { margin: 0; background: #1a2f1a; overflow: hidden; touch-action: none; } 
@@ -13,6 +13,14 @@
 </head>
 <body>
 <script>
+// BLOQUE ANTI-ZOOM PARA ANDROID/IPHONE
+document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTouch = 0;
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouch <= 300) e.preventDefault();
+    lastTouch = now;
+}, false);
 
 /**
  * BLOQUE 1: CONFIGURACIÓN Y VARIABLES
