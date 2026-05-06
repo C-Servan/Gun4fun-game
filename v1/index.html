@@ -33,36 +33,36 @@ const TARGET_SPAWN_RATE = 1500;
 const CONTROL_PANEL_HEIGHT = 180;
 
 function preload() {
-    // Assets Remotos (GitHub)
+    // URL BASE DE TU REPOSITORIO (Para evitar errores de carpetas v1/v2)
+    const baseUrl = 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/';
+
+    // Fondo
     this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/b7714c20dec6d2fd163d80c4d8b031cb9bc12467/assets/fondo_campo_de_tiro.jpg');
     this.load.image('mira', 'https://cdn-icons-png.flaticon.com/512/25/25360.png'); 
-    this.load.image('sargento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/sargento_pixel.png');
     
-    // ASSETS LOCALES (Asegúrate de que la carpeta se llame assets en minúsculas)
-    // El arma: 5 frames horizontales
-    this.load.spritesheet('arma_player', 'assets/arma_player.png', { frameWidth: 256, frameHeight: 320 });
+    // Sargento (Corregido nombre de archivo según lo que suele fallar)
+    this.load.image('sargento', baseUrl + 'sargento_pixel.png');
     
-    // Diana: 2 frames horizontales (Usamos .jpg porque así aparecía en tu captura)
-    this.load.spritesheet('diana_grunt', 'assets/diana.png', { frameWidth: 320, frameHeight: 640 });
-    
-    // Drone: 2 frames horizontales
-    this.load.spritesheet('drone_target', 'assets/drone.png', { frameWidth: 320, frameHeight: 270 });
+    // Spritesheets desde GitHub directamente
+    this.load.spritesheet('arma_player', baseUrl + 'arma_player.png', { frameWidth: 256, frameHeight: 320 });
+    this.load.spritesheet('diana_grunt', baseUrl + 'diana.png', { frameWidth: 320, frameHeight: 640 });
+    this.load.spritesheet('drone_target', baseUrl + 'drone.png', { frameWidth: 320, frameHeight: 270 });
 
-    this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
+    this.load.audio('sfx_disparo', baseUrl + 'disparo.mp3');
 }
 
 function create() {
     let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento');
     let scale = Math.max(window.innerWidth / bg.width, window.innerHeight / bg.height);
-    bg.setScale(scale).setScrollFactor(0).setDepth(0);
+    bg.setScale(scale).setScrollFactor(0);
 
     targets = this.physics.add.group();
 
+    // Arma (Placeholder si no carga)
     playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight, 'arma_player');
     playerGun.setOrigin(0.5, 1).setDepth(100);
-    // Intentamos poner el frame si cargó el arma
-    try { playerGun.setFrame(2); } catch(e) {}
-
+    
+    // UI
     const panelUI = this.add.graphics().setDepth(90);
     panelUI.fillStyle(0x222222, 0.8).fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
     
@@ -98,7 +98,7 @@ function spawnTarget() {
     t.tipo = tipo;
 
     if (tipo !== 'sargento') {
-        t.setFrame(0);
+        t.setFrame(0); // Frame sano (izquierdo)
         t.setScale(0.5); 
     } else {
         t.setScale(0.6);
@@ -106,7 +106,7 @@ function spawnTarget() {
 
     t.alpha = 0;
     this.tweens.add({ targets: t, alpha: 1, duration: 200 });
-    this.time.delayedCall(1500, () => { if (t && t.active) t.destroy(); });
+    this.time.delayedCall(1200, () => { if (t && t.active) t.destroy(); });
 }
 
 function disparar() {
@@ -120,7 +120,7 @@ function disparar() {
         if (t.active && Phaser.Geom.Intersects.RectangleToRectangle(crosshair.getBounds(), t.getBounds())) {
             if (t.tipo !== 'sargento') {
                 score += (t.tipo === 'drone_target') ? 25 : 10;
-                try { t.setFrame(1); } catch(e) {}
+                t.setFrame(1); // Frame roto (derecho)
             } else {
                 score = Math.max(0, score - 50);
                 this.cameras.main.shake(200, 0.02);
@@ -152,13 +152,12 @@ function update() {
         let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, pointer.x, pointer.y);
         let deg = Phaser.Math.RadToDeg(angle);
 
-        try {
-            if (deg < -140) playerGun.setFrame(0);
-            else if (deg < -110) playerGun.setFrame(1);
-            else if (deg < -70) playerGun.setFrame(2);
-            else if (deg < -40) playerGun.setFrame(3);
-            else playerGun.setFrame(4);
-        } catch(e) {}
+        // Sistema de 5 frames
+        if (deg < -140) playerGun.setFrame(0);
+        else if (deg < -110) playerGun.setFrame(1);
+        else if (deg < -70) playerGun.setFrame(2);
+        else if (deg < -40) playerGun.setFrame(3);
+        else playerGun.setFrame(4);
     }
 }
 </script>
