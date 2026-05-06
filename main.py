@@ -153,7 +153,7 @@ def tarea_diaria_programada():
             borrar_mensajes_anteriores(ID_GRUPO_OBJETIVO)
             
             frase_aviso = random.choice(FRASES_INSTRUCTOR)
-            mensaje = f"🪖 REPORTE DIARIO DE LAS 15:00 🪖\n\n\"{frase_aviso}\"\n\n¡Soldados, a las armas! Usad /game para actualizar el ranking."
+            mensaje = f"🪖 REPORTE DIARIO 🪖\n\n\"{frase_aviso}\"\n\n¡Soldados, a las armas! Usad /game para actualizar el ranking."
             enviado = bot.send_message(ID_GRUPO_OBJETIVO, mensaje, parse_mode="Markdown")
             registrar_mensaje(ID_GRUPO_OBJETIVO, enviado.message_id)
             time.sleep(60) 

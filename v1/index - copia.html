@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Multitouch Arcade</title>
+    <title>Gun4Fun: Elite Training</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
@@ -19,7 +19,7 @@ const config = {
     width: window.innerWidth,
     height: window.innerHeight,
     physics: { default: 'arcade', arcade: { debug: false } },
-    input: { activePointers: 3 }, // ACTIVAR MULTITOUCH (Fundamental)
+    input: { activePointers: 3 },
     scene: { preload: preload, create: create, update: update }
 };
 
@@ -27,9 +27,11 @@ const game = new Phaser.Game(config);
 
 let crosshair, targets, score = 0, scoreText, bullets, playerGun;
 let joystickBase, joystickKnob, fireButton;
-let joystickPointer = null; // Para rastrear qué dedo mueve el joystick
+let joystickPointer = null;
+let timeLeft = 60; // 60 segundos de juego
+let timerText;
 
-const CROSSHAIR_SPEED = 15; // Un poco más rápido para mejorar la respuesta
+const CROSSHAIR_SPEED = 15;
 const BULLET_SPEED = 1800;
 const JOY_X = 180;
 const JOY_Y = window.innerHeight - 200;
@@ -53,7 +55,6 @@ function create() {
     targets = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // Mira
     if (this.textures.exists('mira_assets')) {
         crosshair = this.physics.add.image(window.innerWidth/2, window.innerHeight/2, 'mira_assets').setScale(0.25);
     } else {
@@ -65,81 +66,108 @@ function create() {
     playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight, 'arma_player');
     playerGun.setOrigin(0.5, 1).setDepth(10).setScale(0.9);
 
-    scoreText = this.add.text(30, 30, `${userName.toUpperCase()}: ${score}`, { 
-        fontSize: '32px', fill: '#00ff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
+    // UI TEXTOS
+    scoreText = this.add.text(30, 30, `PUNTOS: ${score}`, { 
+        fontSize: '28px', fill: '#00ff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
     }).setDepth(100);
 
-    // --- CONTROLES INDEPENDIENTES ---
+    timerText = this.add.text(window.innerWidth - 30, 30, `TIEMPO: ${timeLeft}`, { 
+        fontSize: '28px', fill: '#ffcc00', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
+    }).setOrigin(1, 0).setDepth(100);
 
-    // JOYSTICK
+    // CONTROLES
     joystickBase = this.add.circle(JOY_X, JOY_Y, JOY_SIZE, 0xffffff, 0.2).setDepth(100).setInteractive();
     joystickBase.setStrokeStyle(4, 0xffffff, 0.5);
     joystickKnob = this.add.circle(JOY_X, JOY_Y, 45, 0x00ff00, 0.8).setDepth(101).setInteractive();
 
-    // Lógica manual de Joystick para evitar conflictos con el Drag
     this.input.on('pointerdown', (pointer) => {
         if (Phaser.Math.Distance.Between(pointer.x, pointer.y, JOY_X, JOY_Y) <= JOY_SIZE) {
             joystickPointer = pointer;
         }
     });
 
-    // BOTÓN FUEGO
     const fireX = window.innerWidth - 150;
     fireButton = this.add.circle(fireX, JOY_Y, 85, 0xff0000, 0.6).setDepth(100).setInteractive();
     fireButton.setStrokeStyle(6, 0xffffff, 0.8);
     this.add.text(fireX, JOY_Y, 'FIRE', { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(101);
 
-    fireButton.on('pointerdown', (pointer) => {
+    fireButton.on('pointerdown', () => {
         fireButton.setScale(0.85);
         disparar.call(this);
     });
     fireButton.on('pointerup', () => fireButton.setScale(1));
 
-    // Colisiones e Impacto
+    // EVENTOS
     this.physics.add.overlap(bullets, targets, impactarObjetivo, null, this);
-    this.time.addEvent({ delay: 1500, callback: spawnTarget, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: 1200, callback: spawnTarget, callbackScope: this, loop: true });
+    
+    // Cuenta atrás
+    this.time.addEvent({ delay: 1000, callback: () => {
+        if (timeLeft > 0) {
+            timeLeft--;
+            timerText.setText(`TIEMPO: ${timeLeft}`);
+        } else {
+            // Fin del juego (opcional)
+        }
+    }, callbackScope: this, loop: true });
 }
 
-function update() {
-    // 1. Manejo del Joystick (Dedo 1)
-    if (joystickPointer && joystickPointer.isDown) {
-        let dist = Phaser.Math.Distance.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
-        let angle = Phaser.Math.Angle.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
+function spawnTarget() {
+    let rand = Math.random();
+    let x, y, tipo, t;
 
-        if (dist > JOY_SIZE) {
-            joystickKnob.x = JOY_X + Math.cos(angle) * JOY_SIZE;
-            joystickKnob.y = JOY_Y + Math.sin(angle) * JOY_SIZE;
-        } else {
-            joystickKnob.x = joystickPointer.x;
-            joystickKnob.y = joystickPointer.y;
-        }
+    if (rand > 0.4) { // DRONES (Aparecen por los lados y cruzan)
+        tipo = 'drone_target';
+        let side = Math.random() > 0.5 ? -50 : window.innerWidth + 50;
+        x = side;
+        y = Phaser.Math.Between(80, window.innerHeight / 2 - 100);
         
-        // Mover mira
-        crosshair.body.setVelocityX((joystickKnob.x - JOY_X) * CROSSHAIR_SPEED);
-        crosshair.body.setVelocityY((joystickKnob.y - JOY_Y) * CROSSHAIR_SPEED);
-    } else {
-        // Reset Joystick
-        joystickKnob.x = JOY_X;
-        joystickKnob.y = JOY_Y;
-        crosshair.body.setVelocity(0);
-        joystickPointer = null;
-    }
+        t = targets.create(x, y, tipo).setDepth(5);
+        t.tipo = tipo;
+        t.setScale(0.4);
+        
+        // Movimiento: Cruzar al lado opuesto con una ligera curva
+        let targetX = side < 0 ? window.innerWidth + 100 : -100;
+        this.tweens.add({
+            targets: t,
+            x: targetX,
+            y: t.y + Phaser.Math.Between(-50, 50),
+            duration: Phaser.Math.Between(3000, 5000),
+            onComplete: () => { if(t.active) t.destroy(); }
+        });
 
-    // 2. Rotación del Arma (Siempre hacia la mira)
-    if (playerGun) {
-        let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
-        let deg = Phaser.Math.RadToDeg(angle);
-        try {
-            if (deg < -140) playerGun.setFrame(0);
-            else if (deg < -110) playerGun.setFrame(1);
-            else if (deg < -70) playerGun.setFrame(2);
-            else if (deg < -40) playerGun.setFrame(3);
-            else playerGun.setFrame(4);
-        } catch(e) {}
+    } else { // DIANAS (Zona restringida al centro de la tierra)
+        tipo = 'diana_grunt';
+        x = Phaser.Math.Between(200, window.innerWidth - 200);
+        // Ajuste zona: Mitad de la mitad inferior (un carril central de tierra)
+        let groundTop = window.innerHeight / 2 + 50;
+        let groundBottom = window.innerHeight - 300;
+        y = Phaser.Math.Between(groundTop, groundBottom);
+        
+        t = targets.create(x, y, tipo).setDepth(5);
+        t.tipo = tipo;
+        t.setScale(0.5);
+        t.alpha = 0;
+        
+        this.tweens.add({ targets: t, alpha: 1, duration: 300 });
+        // En vez de desaparecer, baja al suelo
+        this.time.delayedCall(2000, () => {
+            if (t && t.active) {
+                this.tweens.add({ 
+                    targets: t, 
+                    y: t.y + 100, 
+                    alpha: 0, 
+                    duration: 500, 
+                    onComplete: () => t.destroy() 
+                });
+            }
+        });
     }
+    t.setFrame(0);
 }
 
 function disparar() {
+    if (timeLeft <= 0) return;
     this.tweens.add({ targets: playerGun, y: window.innerHeight + 20, duration: 50, yoyo: true });
     try { this.sound.play('sfx_disparo', { volume: 0.4 }); } catch(e) {}
 
@@ -151,40 +179,56 @@ function disparar() {
     this.physics.velocityFromRotation(angle, BULLET_SPEED, bullet.body.velocity);
     bullet.rotation = angle + Math.PI/2;
 
-    this.time.delayedCall(1500, () => { if(bullet.active) bullet.destroy(); });
-}
-
-function spawnTarget() {
-    const x = Phaser.Math.Between(150, window.innerWidth - 150);
-    let y, tipo;
-    let rand = Math.random();
-    
-    if (rand > 0.5) {
-        tipo = 'drone_target';
-        y = Phaser.Math.Between(100, window.innerHeight / 2 - 50);
-    } else {
-        tipo = 'diana_grunt';
-        y = Phaser.Math.Between(window.innerHeight / 2 + 100, window.innerHeight - 250);
-    }
-
-    let t = targets.create(x, y, tipo).setDepth(5);
-    t.tipo = tipo;
-    t.setFrame(0);
-    t.setScale(tipo === 'drone_target' ? 0.4 : 0.5);
-    t.alpha = 0;
-    this.tweens.add({ targets: t, alpha: 1, duration: 200 });
-    this.time.delayedCall(2500, () => { if (t && t.active) t.destroy(); });
+    this.time.delayedCall(1000, () => { if(bullet.active) bullet.destroy(); });
 }
 
 function impactarObjetivo(bullet, target) {
     bullet.destroy();
-    score += (target.tipo === 'drone_target') ? 25 : 10;
-    scoreText.setText(`${userName.toUpperCase()}: ${score}`);
     target.setFrame(1);
     target.body.enable = false;
+    
+    // Detener movimiento si era dron
+    this.tweens.killTweensOf(target);
+    
+    score += (target.tipo === 'drone_target') ? 25 : 10;
+    scoreText.setText(`PUNTOS: ${score}`);
+
     let flash = this.add.circle(target.x, target.y, 30, 0xffffff, 0.8);
     this.tweens.add({ targets: flash, alpha: 0, scale: 2, duration: 150, onComplete: () => flash.destroy() });
+    
     this.time.delayedCall(400, () => { if (target.active) target.destroy(); });
+}
+
+function update() {
+    if (joystickPointer && joystickPointer.isDown) {
+        let dist = Phaser.Math.Distance.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
+        let angle = Phaser.Math.Angle.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
+        if (dist > JOY_SIZE) {
+            joystickKnob.x = JOY_X + Math.cos(angle) * JOY_SIZE;
+            joystickKnob.y = JOY_Y + Math.sin(angle) * JOY_SIZE;
+        } else {
+            joystickKnob.x = joystickPointer.x;
+            joystickKnob.y = joystickPointer.y;
+        }
+        crosshair.body.setVelocityX((joystickKnob.x - JOY_X) * CROSSHAIR_SPEED);
+        crosshair.body.setVelocityY((joystickKnob.y - JOY_Y) * CROSSHAIR_SPEED);
+    } else {
+        joystickKnob.x = JOY_X; joystickKnob.y = JOY_Y;
+        crosshair.body.setVelocity(0);
+        joystickPointer = null;
+    }
+
+    if (playerGun) {
+        let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
+        let deg = Phaser.Math.RadToDeg(angle);
+        try {
+            if (deg < -140) playerGun.setFrame(0);
+            else if (deg < -110) playerGun.setFrame(1);
+            else if (deg < -70) playerGun.setFrame(2);
+            else if (deg < -40) playerGun.setFrame(3);
+            else playerGun.setFrame(4);
+        } catch(e) {}
+    }
 }
 </script>
 </body>
