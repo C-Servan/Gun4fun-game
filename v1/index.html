@@ -12,9 +12,8 @@
 <script>
 
 /**
- * BLOQUE 1: CONFIGURACIÓN Y VARIABLES
+ * BLOQUE 1: CONFIGURACIÓN
  */
-const FIREBASE_DB_URL_M1 = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/mision1.json"; 
 const urlParams = new URLSearchParams(window.location.search);
 const userName = urlParams.get('user') || 'Recluta';
 
@@ -28,10 +27,8 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let crosshair, targets, score = 0, scoreText, missionText;
+let crosshair, targets, score = 0, scoreText;
 let ammo = 7, ammoText, isReloading = false;
-let bgMusic, sfxDisparo, sfxSargento, sfxAcierto;
-let musicStarted = false;
 let playerGun; 
 
 const RELOAD_TIME = 1000; 
@@ -39,70 +36,55 @@ const TARGET_SPAWN_RATE = 1500;
 const CONTROL_PANEL_HEIGHT = 180;
 
 /**
- * BLOQUE 2: GESTIÓN DE ACTIVOS
+ * BLOQUE 2: PRELOAD
  */
 function preload() {
-    // Fondo y Assets desde GitHub
+    // Fondos y Assets Remotos
     this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/b7714c20dec6d2fd163d80c4d8b031cb9bc12467/assets/fondo_campo_de_tiro.jpg');
     this.load.image('mira', 'https://cdn-icons-png.flaticon.com/512/25/25360.png'); 
     this.load.image('sargento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/sargento_pixel.png');
     
-    // Spritesheets Locales (Deben estar en tu carpeta /assets/)
+    // SPRITESHEETS HORIZONTALES (Basados en tus imágenes)
+    // El arma: 5 frames (1280 / 5 = 256px de ancho cada uno)
     this.load.spritesheet('arma_player', 'assets/arma_player.png', { frameWidth: 256, frameHeight: 320 });
+    
+    // Diana: 2 frames horizontales (640 / 2 = 320px de ancho cada uno)
     this.load.spritesheet('diana_grunt', 'assets/diana.png', { frameWidth: 320, frameHeight: 640 });
+    
+    // Drone: 2 frames horizontales (640 / 2 = 320px de ancho cada uno)
     this.load.spritesheet('drone_target', 'assets/drone.png', { frameWidth: 320, frameHeight: 270 });
 
     // Audio
-    this.load.audio('musica_m1', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/musica_arcade.mp3');
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
 }
 
 /**
- * BLOQUE 3: INICIALIZACIÓN
+ * BLOQUE 3: CREATE
  */
 function create() {
-    // Fondo responsivo
     let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento');
-    let scaleX = window.innerWidth / bg.width;
-    let scaleY = window.innerHeight / bg.height;
-    let scale = Math.max(scaleX, scaleY);
+    let scale = Math.max(window.innerWidth / bg.width, window.innerHeight / bg.height);
     bg.setScale(scale).setScrollFactor(0).setDepth(0);
 
-    // Grupos de física
     targets = this.physics.add.group();
 
-    // IMPLEMENTACIÓN DEL ARMA (Ajustada al frente)
+    // El arma
     playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight, 'arma_player');
-    playerGun.setOrigin(0.5, 1); 
-    playerGun.setDepth(100); // Siempre al frente de todo
-    playerGun.setFrame(2); 
+    playerGun.setOrigin(0.5, 1).setDepth(100);
+    // Si el spritesheet cargó bien, ponemos el frame central
+    if (playerGun.texture.key !== '__MISSING') playerGun.setFrame(2); 
 
     // UI Panel
-    const panelUI = this.add.graphics();
-    panelUI.fillStyle(0x222222, 0.8);
-    panelUI.fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
-    panelUI.lineStyle(4, 0x00ff00, 1);
-    panelUI.lineBetween(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, window.innerHeight - CONTROL_PANEL_HEIGHT);
-    panelUI.setDepth(90);
-
-    this.add.text(window.innerWidth/2, window.innerHeight - (CONTROL_PANEL_HEIGHT / 2) - 20, 'DESLIZA ABAJO PARA RECARGAR', {
-        fontSize: '18px', fill: '#00ff00', fontStyle: 'bold', alpha: 0.8
-    }).setOrigin(0.5).setDepth(91);
-
-    // HUD Textos
+    const panelUI = this.add.graphics().setDepth(90);
+    panelUI.fillStyle(0x222222, 0.8).fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
+    
     scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: 0`, { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setDepth(91);
     ammoText = this.add.text(window.innerWidth - 20, 20, `MUNICIÓN: 7/7`, { fontSize: '24px', fill: '#ffff00', stroke: '#000', strokeThickness: 4 }).setOrigin(1, 0).setDepth(91);
-    missionText = this.add.text(20, 55, 'MISIÓN 1: CAMPO DE ENTRENAMIENTO', { fontSize: '14px', fill: '#00ff00', fontStyle: 'bold' }).setDepth(91);
 
-    // Mira
     crosshair = this.physics.add.sprite(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.1).setDepth(101);
 
-    // Input Listeners
     this.input.on('pointerdown', (p) => {
-        if (!musicStarted) { musicStarted = true; }
-        if (p.y < window.innerHeight - CONTROL_PANEL_HEIGHT) {
-            disparar.call(this);
-        }
+        if (p.y < window.innerHeight - CONTROL_PANEL_HEIGHT) disparar.call(this);
     });
 
     this.input.on('pointermove', (p) => {
@@ -111,87 +93,57 @@ function create() {
     });
 
     this.input.on('pointerup', (p) => {
-        let swipeDistance = p.y - p.downY;
-        if (swipeDistance > 100 && !isReloading) {
-            recargar.call(this);
-        }
+        if (p.y - p.downY > 100 && !isReloading) recargar.call(this);
     });
 
-    // Spawn automático
     this.time.addEvent({ delay: TARGET_SPAWN_RATE, callback: spawnTarget, callbackScope: this, loop: true });
 }
 
-/**
- * BLOQUE 4: LÓGICA DE JUEGO
- */
 function spawnTarget() {
-    // Posición aleatoria dentro del área de juego segura
     const x = Phaser.Math.Between(100, window.innerWidth - 100);
     const y = Phaser.Math.Between(150, window.innerHeight - CONTROL_PANEL_HEIGHT - 150);
     
     let rand = Math.random();
-    let tipo;
-    if (rand > 0.9) {
-        tipo = 'sargento';
-    } else if (rand > 0.6) {
-        tipo = 'drone_target';
-    } else {
-        tipo = 'diana_grunt';
-    }
+    let tipo = rand > 0.9 ? 'sargento' : (rand > 0.6 ? 'drone_target' : 'diana_grunt');
 
-    let t = targets.create(x, y, tipo);
+    let t = targets.create(x, y, tipo).setDepth(10);
     t.tipo = tipo;
-    t.setDepth(10); // Por encima del fondo
 
-    // Ajustar visual según tipo
     if (tipo === 'sargento') {
         t.setScale(0.6);
     } else {
-        t.setFrame(0); // Estado Sano
-        t.setScale(0.4); 
+        t.setFrame(0); // Frame izquierdo (sano)
+        t.setScale(0.5); 
     }
 
-    // Efecto de aparición
     t.alpha = 0;
-    this.tweens.add({
-        targets: t,
-        alpha: 1,
-        duration: 200,
-        onComplete: () => {
-            this.time.delayedCall(1200, () => {
-                if (t && t.active) t.destroy();
-            });
-        }
-    });
+    this.tweens.add({ targets: t, alpha: 1, duration: 200 });
+    this.time.delayedCall(1500, () => { if (t.active) t.destroy(); });
 }
 
 function disparar() {
     if (ammo <= 0 || isReloading) return;
-
     ammo--;
     actualizarInterfaz();
     
+    this.sound.play('sfx_disparo', { volume: 0.4 });
+
     let flash = this.add.circle(crosshair.x, crosshair.y, 20, 0xffff00, 0.5).setDepth(102);
     this.time.delayedCall(50, () => flash.destroy());
 
     targets.children.each(t => {
         if (t.active && Phaser.Geom.Intersects.RectangleToRectangle(crosshair.getBounds(), t.getBounds())) {
-            procesarAcierto.call(this, t);
+            if (t.tipo !== 'sargento') {
+                score += (t.tipo === 'drone_target') ? 25 : 10;
+                t.setFrame(1); // Frame derecho (roto)
+            } else {
+                score = Math.max(0, score - 50);
+                this.cameras.main.shake(200, 0.02);
+            }
+            this.time.delayedCall(100, () => { if (t.active) t.destroy(); });
+            actualizarInterfaz();
         }
     });
-}
-
-function procesarAcierto(target) {
-    if (target.tipo === 'sargento') {
-        score = Math.max(0, score - 50);
-        this.cameras.main.shake(200, 0.02);
-    } else {
-        score += (target.tipo === 'drone_target') ? 25 : 10;
-        if (target.tipo !== 'sargento') target.setFrame(1); // Frame de destrucción
-    }
-    
-    this.time.delayedCall(100, () => { if (target.active) target.destroy(); });
-    actualizarInterfaz();
 }
 
 function recargar() {
@@ -210,30 +162,19 @@ function actualizarInterfaz() {
 }
 
 function update() {
-    // Limpieza de memoria
-    targets.children.each(c => { if (c.active && (c.y > window.innerHeight || c.y < -100)) c.destroy(); });
-
-    // ROTACIÓN DE ARMA TIPO PUZZLE BOBBLE (5 Frames)
     let pointer = this.input.activePointer;
-    if (pointer.active || pointer.isDown) {
+    // Si el arma existe y cargó la imagen, la rotamos
+    if (playerGun && playerGun.texture.key !== '__MISSING' && (pointer.active || pointer.isDown)) {
         let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, pointer.x, pointer.y);
         let deg = Phaser.Math.RadToDeg(angle);
 
-        // Mapeo de ángulos a frames 0-4
-        if (deg < -140) {
-            playerGun.setFrame(0);
-        } else if (deg < -110) {
-            playerGun.setFrame(1);
-        } else if (deg < -70) {
-            playerGun.setFrame(2);
-        } else if (deg < -40) {
-            playerGun.setFrame(3);
-        } else {
-            playerGun.setFrame(4);
-        }
+        if (deg < -140) playerGun.setFrame(0);
+        else if (deg < -110) playerGun.setFrame(1);
+        else if (deg < -70) playerGun.setFrame(2);
+        else if (deg < -40) playerGun.setFrame(3);
+        else playerGun.setFrame(4);
     }
 }
-
 </script>
 </body>
 </html>
