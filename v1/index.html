@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun Misión 1: Zonas y Daño</title>
+    <title>Gun4Fun Misión 1: Consola de Control</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #2a1a1a; overflow: hidden; touch-action: none; }
@@ -24,151 +24,225 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let crosshair, targets, score = 0, scoreText;
-let ammo = 7, ammoText, isReloading = false;
+// Variables Globales
+let crosshair, targets, score = 0, scoreText, bullets;
 let playerGun; 
+let joystickBase, joystickKnob, fireButton; // Elementos de control
+let isDraggingJoystick = false;
 
-const RELOAD_TIME = 1000; 
+// Configuraciones
 const TARGET_SPAWN_RATE = 1500; 
-const CONTROL_PANEL_HEIGHT = 180;
+const CONTROL_PANEL_HEIGHT = 220; // Un poco más alto para los controles
+const CROSSHAIR_SPEED = 10; // Velocidad de movimiento de la mira
+const BULLET_SPEED = 1200; // Velocidad de la bala
 
 function preload() {
     const repoPath = 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/';
 
-    this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/fondo_campo_de_tiro.jpg');
-    this.load.image('mira', 'https://cdn-icons-png.flaticon.com/512/25/25360.png'); 
+    this.load.image('fondo_entrenamiento', repoPath + 'fondo_campo_de_tiro.jpg');
     
-    // Spritesheets (Asegúrate de que diana.png y drone.png estén en assets)
+    // MIRA: Busca una nueva, renómbrala diana_nueva.png y súbela a assets. 
+    // Mientras uso un círculo rojo de Phaser como placeholder.
+    this.load.image('mira_assets', 'assets/mira_nueva.png'); 
+    
+    // Spritesheets locales
     this.load.spritesheet('arma_player', 'assets/arma_player.png', { frameWidth: 256, frameHeight: 320 });
     this.load.spritesheet('diana_grunt', 'assets/diana.png', { frameWidth: 320, frameHeight: 640 });
     this.load.spritesheet('drone_target', 'assets/drone.png', { frameWidth: 320, frameHeight: 270 });
 
+    // Audio remotos
     this.load.audio('sfx_disparo', repoPath + 'disparo.mp3');
 }
 
 function create() {
+    // 1. FONDO Y GRUPOS
     let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento');
     let scale = Math.max(window.innerWidth / bg.width, window.innerHeight / bg.height);
     bg.setScale(scale).setScrollFactor(0);
 
     targets = this.physics.add.group();
+    bullets = this.physics.add.group(); // Grupo para las balas
 
-    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight, 'arma_player');
-    playerGun.setOrigin(0.5, 1).setDepth(100);
+    // 2. ARMA (Placeholder si no hay imagen)
+    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - CONTROL_PANEL_HEIGHT, 'arma_player');
+    playerGun.setOrigin(0.5, 1).setDepth(10).setScale(0.8);
 
-    const panelUI = this.add.graphics().setDepth(90);
-    panelUI.fillStyle(0x222222, 0.8).fillRect(0, window.innerHeight - CONTROL_PANEL_HEIGHT, window.innerWidth, CONTROL_PANEL_HEIGHT);
+    // 3. MIRA (Intentamos cargar de assets, si no hacemos un círculo)
+    if (this.textures.exists('mira_assets')) {
+        crosshair = this.physics.add.image(window.innerWidth/2, window.innerHeight/2, 'mira_assets').setScale(0.2);
+    } else {
+        // Placeholder: Círculo rojo si no encuentra el archivo
+        crosshair = this.add.circle(window.innerWidth/2, window.innerHeight/2, 15, 0xff0000, 0.8);
+        this.physics.add.existing(crosshair);
+    }
+    crosshair.setDepth(50);
+    // Limitar movimiento de la mira a la zona de juego
+    crosshair.body.setCollideWorldBounds(true);
+    crosshair.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, window.innerWidth, window.innerHeight - CONTROL_PANEL_HEIGHT));
+
+
+    // 4. CONSOLA DE CONTROL INFERIOR
+    const panelY = window.innerHeight - CONTROL_PANEL_HEIGHT;
+    const panelUI = this.add.graphics().setDepth(100);
+    panelUI.fillStyle(0x111111, 0.9); // Más oscuro
+    panelUI.fillRect(0, panelY, window.innerWidth, CONTROL_PANEL_HEIGHT);
+    panelUI.lineStyle(4, 0x00ff00, 1);
+    panelUI.lineBetween(0, panelY, window.innerWidth, panelY);
+
+    // Texto de puntuación (Mantenemos munición infinita implícita al no mostrarla)
+    scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: ${score}`, { fontSize: '24px', fill: '#fff' }).setDepth(101);
+
+    // 5. CREACIÓN DE CONTROLES (JOYSTICK Y BOTÓN)
     
-    scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: ${score}`, { fontSize: '24px', fill: '#fff' }).setDepth(91);
-    ammoText = this.add.text(window.innerWidth - 20, 20, `MUNICIÓN: 7/7`, { fontSize: '24px', fill: '#ffff00' }).setOrigin(1, 0).setDepth(91);
+    // A) JOYSTICK (Izquierda)
+    const joyX = 120;
+    const joyY = panelY + (CONTROL_PANEL_HEIGHT / 2);
+    
+    joystickBase = this.add.circle(joyX, joyY, 60, 0x444444).setDepth(102).setInteractive();
+    joystickKnob = this.add.circle(joyX, joyY, 35, 0x00ff00).setDepth(103).setInteractive();
 
-    crosshair = this.physics.add.sprite(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.1).setDepth(101);
+    // Lógica de arrastre del Joystick
+    this.input.setDraggable(joystickKnob);
 
-    // NUEVO SISTEMA DE DISPARO: Más directo
-    this.input.on('pointerdown', (p) => {
-        if (p.y < window.innerHeight - CONTROL_PANEL_HEIGHT) {
-            disparar.call(this);
+    joystickKnob.on('drag', (pointer, dragX, dragY) => {
+        isDraggingJoystick = true;
+        
+        // Calcular distancia y ángulo desde la base
+        let distance = Phaser.Math.Distance.Between(joyX, joyY, dragX, dragY);
+        let angle = Phaser.Math.Angle.Between(joyX, joyY, dragX, dragY);
+
+        // Limitar movimiento del knob dentro de la base
+        if (distance > 60) {
+            joystickKnob.x = joyX + Math.cos(angle) * 60;
+            joystickKnob.y = joyY + Math.sin(angle) * 60;
+        } else {
+            joystickKnob.x = dragX;
+            joystickKnob.y = dragY;
         }
+
+        // Mover la MIRA basándose en la posición del joystick
+        crosshair.body.setVelocityX((joystickKnob.x - joyX) * CROSSHAIR_SPEED);
+        crosshair.body.setVelocityY((joystickKnob.y - joyY) * CROSSHAIR_SPEED);
     });
 
-    this.input.on('pointermove', (p) => {
-        crosshair.setPosition(p.x, p.y);
+    joystickKnob.on('dragend', () => {
+        isDraggingJoystick = false;
+        // Volver al centro
+        joystickKnob.x = joyX;
+        joystickKnob.y = joyY;
+        // Detener la mira
+        crosshair.body.setVelocity(0);
     });
 
-    this.input.on('pointerup', (p) => {
-        if (p.y - p.downY > 80 && !isReloading) recargar.call(this);
-    });
 
+    // B) BOTÓN DE DISPARO (Derecha)
+    const fireX = window.innerWidth - 120;
+    const fireY = panelY + (CONTROL_PANEL_HEIGHT / 2);
+
+    fireButton = this.add.circle(fireX, fireY, 70, 0xff0000, 0.8).setDepth(102).setInteractive();
+    this.add.text(fireX, fireY, 'FUEGO', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setDepth(103);
+
+    fireButton.on('pointerdown', () => {
+        fireButton.setScale(0.9);
+        disparar.call(this);
+    });
+    fireButton.on('pointerup', () => fireButton.setScale(1));
+
+
+    // 6. COLISIONES (Bala con Objetivo)
+    this.physics.add.overlap(bullets, targets, impactarObjetivo, null, this);
+
+    // Spawn automático
     this.time.addEvent({ delay: TARGET_SPAWN_RATE, callback: spawnTarget, callbackScope: this, loop: true });
 }
 
 function spawnTarget() {
     const x = Phaser.Math.Between(150, window.innerWidth - 150);
     let y, tipo;
-    
     let rand = Math.random();
     
-    // ZONIFICACIÓN LÓGICA
     if (rand > 0.5) {
         tipo = 'drone_target';
-        // Solo en el CIELO (De arriba hasta la mitad)
-        y = Phaser.Math.Between(100, window.innerHeight / 2 - 50);
+        y = Phaser.Math.Between(100, window.innerHeight / 2 - 80);
     } else {
         tipo = 'diana_grunt';
-        // Solo en la TIERRA (De la mitad hasta el panel de control)
-        y = Phaser.Math.Between(window.innerHeight / 2 + 50, window.innerHeight - CONTROL_PANEL_HEIGHT - 100);
+        y = Phaser.Math.Between(window.innerHeight / 2 + 80, window.innerHeight - CONTROL_PANEL_HEIGHT - 120);
     }
 
-    let t = targets.create(x, y, tipo).setDepth(10);
+    let t = targets.create(x, y, tipo).setDepth(5);
     t.tipo = tipo;
     t.setFrame(0);
     t.setScale(tipo === 'drone_target' ? 0.35 : 0.45);
 
     t.alpha = 0;
     this.tweens.add({ targets: t, alpha: 1, duration: 250 });
-    
-    // Tiempo de vida en pantalla
-    this.time.delayedCall(2000, () => { if (t && t.active) t.destroy(); });
+    this.time.delayedCall(2500, () => { if (t && t.active) t.destroy(); });
 }
 
+
+// NUEVO SISTEMA DE DISPARO CON BALA FÍSICA
 function disparar() {
-    if (ammo <= 0 || isReloading) return;
-    
-    ammo--;
-    actualizarInterfaz();
-    
-    // Efecto visual de retroceso del arma
-    this.tweens.add({ targets: playerGun, y: window.innerHeight + 20, duration: 50, yoyo: true });
+    // Efecto retroceso arma
+    this.tweens.add({ targets: playerGun, y: window.innerHeight - CONTROL_PANEL_HEIGHT + 20, duration: 50, yoyo: true });
     
     try { this.sound.play('sfx_disparo', { volume: 0.5 }); } catch(e) {}
 
-    let hitSomething = false;
+    // 1. Crear la bala (un pequeño rectángulo amarillo)
+    let bullet = bullets.create(playerGun.x, playerGun.y - 100, null);
+    
+    // Si no tenemos imagen de bala, creamos un gráfico simple
+    if (bullet.texture.key === '__MISSING') {
+        bullet.destroy(); // Quitamos el sprite vacío
+        // Creamos un rectángulo físico amarillo
+        bullet = this.add.rectangle(playerGun.x, playerGun.y - 100, 10, 25, 0xffff00);
+        bullets.add(bullet);
+    }
+    
+    bullet.setDepth(8);
 
-    targets.children.each(t => {
-        if (t.active && Phaser.Geom.Intersects.RectangleToRectangle(crosshair.getBounds(), t.getBounds())) {
-            hitSomething = true;
-            score += (t.tipo === 'drone_target') ? 25 : 10;
-            
-            // MOSTRAR DAÑO: Cambiamos frame y esperamos más tiempo (300ms)
-            t.setFrame(1);
-            t.body.enable = false; // Deshabilitar para que no se pueda dar dos veces
-            
-            this.time.delayedCall(300, () => { 
-                if (t.active) {
-                    this.tweens.add({ targets: t, alpha: 0, scale: 0, duration: 100, onComplete: () => t.destroy() });
-                }
-            });
-            actualizarInterfaz();
+    // 2. Calcular ángulo hacia la MIRA
+    let angle = Phaser.Math.Angle.Between(bullet.x, bullet.y, crosshair.x, crosshair.y);
+    
+    // 3. Dar velocidad a la bala en ese ángulo
+    this.physics.velocityFromRotation(angle, BULLET_SPEED, bullet.body.velocity);
+    
+    // 4. Rotar la bala para que mire a donde va
+    bullet.rotation = angle + Math.PI / 2;
+
+    // Autodestrucción de la bala si sale de la pantalla de juego
+    this.time.delayedCall(2000, () => { if(bullet.active) bullet.destroy(); });
+}
+
+// LÓGICA DE IMPACTO
+function impactarObjetivo(bullet, target) {
+    bullet.destroy(); // La bala desaparece
+
+    score += (target.tipo === 'drone_target') ? 25 : 10;
+    
+    // Daño visible (Frame 1)
+    target.setFrame(1);
+    target.body.enable = false; // Ya no se puede volver a golpear
+    
+    // Efecto de explosión/impacto (Círculo naranja rápido)
+    let exp = this.add.circle(target.x, target.y, 20, 0xffa500).setDepth(7);
+    this.tweens.add({ targets: exp, scale: 2, alpha: 0, duration: 200, onComplete: () => exp.destroy() });
+
+    // Tiempo de muerte
+    this.time.delayedCall(300, () => { 
+        if (target.active) {
+            this.tweens.add({ targets: target, alpha: 0, scale: 0, duration: 100, onComplete: () => target.destroy() });
         }
     });
-
-    if (!hitSomething) {
-        // Opcional: Pequeño flash o sonido de fallo
-    }
-}
-
-function recargar() {
-    isReloading = true;
-    ammoText.setText("RECARGANDO...");
-    this.time.delayedCall(RELOAD_TIME, () => {
-        ammo = 7;
-        isReloading = false;
-        actualizarInterfaz();
-    });
-}
-
-function actualizarInterfaz() {
+    
     scoreText.setText(`${userName.toUpperCase()}: ${score}`);
-    if (!isReloading) ammoText.setText(`MUNICIÓN: ${ammo}/7`);
 }
 
 function update() {
-    let pointer = this.input.activePointer;
+    // Rotación del arma hacia la mira (Sistema de 5 frames)
     if (playerGun) {
-        let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, pointer.x, pointer.y);
+        let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
         let deg = Phaser.Math.RadToDeg(angle);
 
-        // Sistema de 5 frames (Solo funcionará cuando subas arma_player.png)
         try {
             if (deg < -140) playerGun.setFrame(0);
             else if (deg < -110) playerGun.setFrame(1);
