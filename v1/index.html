@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun Misión 1: Campo de Entrenamiento</title>
+    <title>Gun4Fun Misión 1: Campo de Entrenamiento (TEST)</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; background: #2a1a1a; overflow: hidden; touch-action: none; }
@@ -12,7 +12,7 @@
 <script>
 
 /**
- * BLOQUE 1: CONFIGURACIÓN
+ * CONFIGURACIÓN Y VARIABLES
  */
 const urlParams = new URLSearchParams(window.location.search);
 const userName = urlParams.get('user') || 'Recluta';
@@ -36,43 +36,41 @@ const TARGET_SPAWN_RATE = 1500;
 const CONTROL_PANEL_HEIGHT = 180;
 
 /**
- * BLOQUE 2: PRELOAD
+ * PRELOAD - USANDO IMÁGENES EXTERNAS DE TEST
  */
 function preload() {
-    // Fondos y Assets Remotos
+    // Fondo y elementos básicos
     this.load.image('fondo_entrenamiento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/b7714c20dec6d2fd163d80c4d8b031cb9bc12467/assets/fondo_campo_de_tiro.jpg');
-    this.load.image('mira', 'https://cdn-icons-png.flaticon.com/512/25/25360.png'); 
+    this.load.image('mira', 'https://labs.phaser.io/assets/sprites/crosshair.png'); 
     this.load.image('sargento', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/sargento_pixel.png');
     
-    // SPRITESHEETS HORIZONTALES (Basados en tus imágenes)
-    // El arma: 5 frames (1280 / 5 = 256px de ancho cada uno)
-    this.load.spritesheet('arma_player', 'assets/arma_player.png', { frameWidth: 256, frameHeight: 320 });
+    // Diana de Test (Spritesheet horizontal: 2 frames)
+    this.load.spritesheet('diana_grunt', 'https://labs.phaser.io/assets/sprites/metalslug_monster3.png', { frameWidth: 42, frameHeight: 38 });
     
-    // Diana: 2 frames horizontales (640 / 2 = 320px de ancho cada uno)
-    this.load.spritesheet('diana_grunt', 'assets/diana.png', { frameWidth: 320, frameHeight: 640 });
-    
-    // Drone: 2 frames horizontales (640 / 2 = 320px de ancho cada uno)
-    this.load.spritesheet('drone_target', 'assets/drone.png', { frameWidth: 320, frameHeight: 270 });
+    // Drone de Test (Spritesheet horizontal: 2 frames)
+    this.load.spritesheet('drone_target', 'https://labs.phaser.io/assets/sprites/hummer.png', { frameWidth: 32, frameHeight: 32 });
+
+    // Arma de Test (Usamos una nave como placeholder)
+    this.load.spritesheet('arma_player', 'https://labs.phaser.io/assets/sprites/ship.png', { frameWidth: 32, frameHeight: 32 });
 
     // Audio
     this.load.audio('sfx_disparo', 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/disparo.mp3');
 }
 
 /**
- * BLOQUE 3: CREATE
+ * CREATE
  */
 function create() {
+    // Fondo escalado
     let bg = this.add.image(window.innerWidth/2, window.innerHeight/2, 'fondo_entrenamiento');
     let scale = Math.max(window.innerWidth / bg.width, window.innerHeight / bg.height);
     bg.setScale(scale).setScrollFactor(0).setDepth(0);
 
     targets = this.physics.add.group();
 
-    // El arma
-    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight, 'arma_player');
-    playerGun.setOrigin(0.5, 1).setDepth(100);
-    // Si el spritesheet cargó bien, ponemos el frame central
-    if (playerGun.texture.key !== '__MISSING') playerGun.setFrame(2); 
+    // El arma (placeholder externo)
+    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - 50, 'arma_player');
+    playerGun.setOrigin(0.5, 1).setDepth(100).setScale(3);
 
     // UI Panel
     const panelUI = this.add.graphics().setDepth(90);
@@ -81,8 +79,10 @@ function create() {
     scoreText = this.add.text(20, 20, `${userName.toUpperCase()}: 0`, { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setDepth(91);
     ammoText = this.add.text(window.innerWidth - 20, 20, `MUNICIÓN: 7/7`, { fontSize: '24px', fill: '#ffff00', stroke: '#000', strokeThickness: 4 }).setOrigin(1, 0).setDepth(91);
 
-    crosshair = this.physics.add.sprite(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.1).setDepth(101);
+    // Mira
+    crosshair = this.physics.add.sprite(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.5).setDepth(101);
 
+    // Controles
     this.input.on('pointerdown', (p) => {
         if (p.y < window.innerHeight - CONTROL_PANEL_HEIGHT) disparar.call(this);
     });
@@ -96,6 +96,7 @@ function create() {
         if (p.y - p.downY > 100 && !isReloading) recargar.call(this);
     });
 
+    // Spawn automático
     this.time.addEvent({ delay: TARGET_SPAWN_RATE, callback: spawnTarget, callbackScope: this, loop: true });
 }
 
@@ -109,16 +110,16 @@ function spawnTarget() {
     let t = targets.create(x, y, tipo).setDepth(10);
     t.tipo = tipo;
 
-    if (tipo === 'sargento') {
-        t.setScale(0.6);
+    if (tipo !== 'sargento') {
+        t.setFrame(0);
+        t.setScale(2); // Escala aumentada para que se vean bien los de test
     } else {
-        t.setFrame(0); // Frame izquierdo (sano)
-        t.setScale(0.5); 
+        t.setScale(0.6);
     }
 
     t.alpha = 0;
     this.tweens.add({ targets: t, alpha: 1, duration: 200 });
-    this.time.delayedCall(1500, () => { if (t.active) t.destroy(); });
+    this.time.delayedCall(1500, () => { if (t && t.active) t.destroy(); });
 }
 
 function disparar() {
@@ -128,14 +129,12 @@ function disparar() {
     
     this.sound.play('sfx_disparo', { volume: 0.4 });
 
-    let flash = this.add.circle(crosshair.x, crosshair.y, 20, 0xffff00, 0.5).setDepth(102);
-    this.time.delayedCall(50, () => flash.destroy());
-
     targets.children.each(t => {
         if (t.active && Phaser.Geom.Intersects.RectangleToRectangle(crosshair.getBounds(), t.getBounds())) {
             if (t.tipo !== 'sargento') {
                 score += (t.tipo === 'drone_target') ? 25 : 10;
-                t.setFrame(1); // Frame derecho (roto)
+                // En el test, el frame 1 es el objeto en otra posición o color
+                t.setFrame(1); 
             } else {
                 score = Math.max(0, score - 50);
                 this.cameras.main.shake(200, 0.02);
@@ -163,16 +162,9 @@ function actualizarInterfaz() {
 
 function update() {
     let pointer = this.input.activePointer;
-    // Si el arma existe y cargó la imagen, la rotamos
-    if (playerGun && playerGun.texture.key !== '__MISSING' && (pointer.active || pointer.isDown)) {
+    if (playerGun && (pointer.active || pointer.isDown)) {
         let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, pointer.x, pointer.y);
-        let deg = Phaser.Math.RadToDeg(angle);
-
-        if (deg < -140) playerGun.setFrame(0);
-        else if (deg < -110) playerGun.setFrame(1);
-        else if (deg < -70) playerGun.setFrame(2);
-        else if (deg < -40) playerGun.setFrame(3);
-        else playerGun.setFrame(4);
+        playerGun.rotation = angle + Math.PI/2;
     }
 }
 </script>
