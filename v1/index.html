@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Misión 1 - Entrenamiento Élite</title>
+    <title>Gun4Fun: Misión 1 - Entrenamiento Élite (Arma Fija con Rotación)</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -49,6 +49,8 @@ const config = {
 const game = new Phaser.Game(config);
 
 let crosshair, targets, score = 0, scoreText, bullets, playerGun;
+// NUEVO: Variable para la base fija de la ametralladora
+let gunBase;
 let joystickBase, joystickKnob, fireButton, fireText;
 let joystickPointer = null;
 let timeLeft = 60;
@@ -65,9 +67,14 @@ function preload() {
     const repoPath = 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/';
     this.load.image('fondo', repoPath + 'fondo_campo_de_tiro.jpg');
     this.load.image('mira', repoPath + 'mira_nueva.png'); 
-    this.load.spritesheet('arma', repoPath + 'arma_player.png', { frameWidth: 256, frameHeight: 320 });
+    
+    // NUEVO: Se carga como 'image' (fija) en lugar de 'spritesheet'
+    // Asegúrate de que el archivo 'assets/arma_player.png' sea tu nueva imagen fija.
+    this.load.image('arma_fija', 'assets/arma_player.png'); 
+    
     this.load.spritesheet('diana', repoPath + 'diana.png', { frameWidth: 320, frameHeight: 640 });
     this.load.spritesheet('drone', repoPath + 'drone.png', { frameWidth: 320, frameHeight: 270 });
+    this.load.audio('sfx_disparo', repoPath + 'disparo.mp3');
 }
 
 function create() {
@@ -82,12 +89,32 @@ function create() {
     crosshair = this.physics.add.image(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.25).setDepth(50);
     crosshair.body.setCollideWorldBounds(true);
 
-    playerGun = this.add.sprite(window.innerWidth/2, window.innerHeight, 'arma').setOrigin(0.5, 1).setDepth(10).setScale(0.9);
+    // NUEVO: Creamos la base fija (un trípode estático en el suelo)
+    // Esto es esencial para que la rotación de la ametralladora se vea natural.
+    const baseWidth = 100;
+    const baseHeight = 150;
+    gunBase = this.add.graphics();
+    gunBase.fillStyle(0x333333, 1); // Gris oscuro
+    gunBase.fillTriangle(
+        window.innerWidth / 2, window.innerHeight - baseHeight, // Cima (donde se une el arma)
+        window.innerWidth / 2 - baseWidth / 2, window.innerHeight, // Base izquierda
+        window.innerWidth / 2 + baseWidth / 2, window.innerHeight  // Base derecha
+    );
+    gunBase.setDepth(10); // Misma profundidad o justo debajo del arma
+
+    // NUEVO: Creamos el sprite del arma con la imagen fija
+    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - baseHeight + 10, 'arma_fija');
+    // NUEVO: El punto de anclaje (Origin) es crucial.
+    // X=0.5 (centro horizontal), Y=0.9 (cerca de la parte inferior de la imagen).
+    // Esto hace que el arma gire 'sobre' su base/trípode, no desde su centro.
+    playerGun.setOrigin(0.5, 0.9).setDepth(11).setScale(0.8);
+    // NUEVO: Inicializar con una rotación neutral (mirando al centro)
+    playerGun.setRotation(Phaser.Math.DegToRad(-90));
+
 
     scoreText = this.add.text(30, 30, `PUNTOS: 0`, { fontSize: '28px', fill: '#0f0', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 });
     timerText = this.add.text(window.innerWidth-30, 30, `60s`, { fontSize: '28px', fill: '#ff0', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setOrigin(1,0);
 
-    // Controles
     joystickBase = this.add.circle(JOY_X, JOY_Y, JOY_SIZE, 0xffffff, 0.2).setDepth(100).setInteractive();
     joystickKnob = this.add.circle(JOY_X, JOY_Y, 45, 0x00ff00, 0.8).setDepth(101).setInteractive();
     this.input.on('pointerdown', (p) => { if(!isGameOver && Phaser.Math.Distance.Between(p.x, p.y, JOY_X, JOY_Y) <= JOY_SIZE) joystickPointer = p; });
@@ -98,7 +125,6 @@ function create() {
 
     this.physics.add.overlap(bullets, targets, impactar, null, this);
     
-    // Generadores con la lógica de movimiento aleatorio y zonas restringidas
     spawnEvent = this.time.addEvent({ delay: 1200, callback: spawnTarget, callbackScope: this, loop: true });
     
     timerEvent = this.time.addEvent({ delay: 1000, callback: () => { 
@@ -117,9 +143,20 @@ function update() {
         crosshair.body.setVelocity((joystickKnob.x - JOY_X) * CROSSHAIR_SPEED, (joystickKnob.y - JOY_Y) * CROSSHAIR_SPEED);
     } else { joystickKnob.setPosition(JOY_X, JOY_Y); crosshair.body.setVelocity(0); }
     
-    let angle = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
-    let deg = Phaser.Math.RadToDeg(angle);
-    if(deg < -140) playerGun.setFrame(0); else if(deg < -110) playerGun.setFrame(1); else if(deg < -70) playerGun.setFrame(2); else if(deg < -40) playerGun.setFrame(3); else playerGun.setFrame(4);
+    // NUEVO: Sistema de apuntado por rotación (sustituye al de frames)
+    // 1. Calcular el ángulo exacto entre el punto de giro del arma y la mira.
+    let angleToCrosshair = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
+    
+    // 2. Aplicar la rotación directamente al sprite de la ametralladora.
+    playerGun.setRotation(angleToCrosshair);
+
+    // NUEVO: Limitar la rotación para que el arma no se gire del todo "boca abajo"
+    // Esto asegura un rango de giro lógico (aprox. 120 grados) para el trípode.
+    if (playerGun.rotation < Phaser.Math.DegToRad(-150)) {
+        playerGun.setRotation(Phaser.Math.DegToRad(-150));
+    } else if (playerGun.rotation > Phaser.Math.DegToRad(-30)) {
+        playerGun.setRotation(Phaser.Math.DegToRad(-30));
+    }
 }
 
 function spawnTarget() {
@@ -127,7 +164,7 @@ function spawnTarget() {
     let rand = Math.random();
     let x, y, t;
 
-    if (rand > 0.5) { // DRONES: Movimiento lateral
+    if (rand > 0.5) { 
         let side = Math.random() > 0.5 ? -50 : window.innerWidth + 50;
         x = side;
         y = Phaser.Math.Between(80, window.innerHeight / 2 - 100);
@@ -141,7 +178,7 @@ function spawnTarget() {
             duration: Phaser.Math.Between(3000, 5000),
             onComplete: () => { if(t.active) t.destroy(); }
         });
-    } else { // DIANAS: Zona central de tierra
+    } else { 
         x = Phaser.Math.Between(200, window.innerWidth - 200);
         y = Phaser.Math.Between(window.innerHeight / 2 + 50, window.innerHeight - 350);
         t = targets.create(x, y, 'diana').setDepth(5).setScale(0.5).setAlpha(0);
@@ -157,8 +194,10 @@ function spawnTarget() {
 }
 
 function disparar() {
-    this.tweens.add({ targets: playerGun, y: window.innerHeight+20, duration: 50, yoyo: true });
-    let b = this.add.rectangle(playerGun.x, playerGun.y-150, 8, 25, 0xffff00);
+    try { this.sound.play('sfx_disparo', { volume: 0.4 }); } catch(e) {}
+    
+    this.tweens.add({ targets: playerGun, y: playerGun.y + 10, duration: 50, yoyo: true }); // NUEVO: Ajuste leve del retroceso visual
+    let b = this.add.rectangle(playerGun.x, playerGun.y-50, 8, 25, 0xffff00); // NUEVO: Ajuste de posición de salida de bala
     bullets.add(b); this.physics.add.existing(b);
     let a = Phaser.Math.Angle.Between(b.x, b.y, crosshair.x, crosshair.y);
     this.physics.velocityFromRotation(a, BULLET_SPEED, b.body.velocity);
