@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Misión 1 - Entrenamiento Élite (Arma Fija con Rotación)</title>
+    <title>Gun4Fun: Misión 1 - Entrenamiento Élite</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -16,7 +16,7 @@
 <script>
 
 /**
- * CONFIGURACIÓN FIREBASE (DATOS REALES)
+ * 1. CONFIGURACIÓN FIREBASE (DATOS REALES)
  */
 const firebaseConfig = {
     apiKey: "AIzaSyDzvJeyrZNUXKWEUyrtzfRrUp7nkaHYArw",
@@ -32,7 +32,7 @@ if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const database = firebase.database();
 
 /**
- * CONFIGURACIÓN JUEGO
+ * 2. CONFIGURACIÓN JUEGO
  */
 const urlParams = new URLSearchParams(window.location.search);
 const userName = urlParams.get('user') || 'Recluta';
@@ -48,15 +48,14 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-let crosshair, targets, score = 0, scoreText, bullets, playerGun;
-// NUEVO: Variable para la base fija de la ametralladora
-let gunBase;
+let crosshair, targets, score = 0, scoreText, bullets, playerGun, gunBase;
 let joystickBase, joystickKnob, fireButton, fireText;
 let joystickPointer = null;
 let timeLeft = 60;
 let isGameOver = false;
 let spawnEvent, timerEvent;
 
+// Ajustes técnicos
 const CROSSHAIR_SPEED = 18;
 const BULLET_SPEED = 2000;
 const JOY_X = 180;
@@ -67,11 +66,7 @@ function preload() {
     const repoPath = 'https://raw.githubusercontent.com/C-Servan/Gun4fun-game/main/assets/';
     this.load.image('fondo', repoPath + 'fondo_campo_de_tiro.jpg');
     this.load.image('mira', repoPath + 'mira_nueva.png'); 
-    
-    // NUEVO: Se carga como 'image' (fija) en lugar de 'spritesheet'
-    // Asegúrate de que el archivo 'assets/arma_player.png' sea tu nueva imagen fija.
-    this.load.image('arma_fija', 'assets/arma_player.png'); 
-    
+    this.load.image('arma_fija', repoPath + 'arma_player.png'); 
     this.load.spritesheet('diana', repoPath + 'diana.png', { frameWidth: 320, frameHeight: 640 });
     this.load.spritesheet('drone', repoPath + 'drone.png', { frameWidth: 320, frameHeight: 270 });
     this.load.audio('sfx_disparo', repoPath + 'disparo.mp3');
@@ -89,42 +84,50 @@ function create() {
     crosshair = this.physics.add.image(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.25).setDepth(50);
     crosshair.body.setCollideWorldBounds(true);
 
-    // NUEVO: Creamos la base fija (un trípode estático en el suelo)
-    // Esto es esencial para que la rotación de la ametralladora se vea natural.
-    const baseWidth = 100;
+    // Base del arma
     const baseHeight = 150;
     gunBase = this.add.graphics();
-    gunBase.fillStyle(0x333333, 1); // Gris oscuro
-    gunBase.fillTriangle(
-        window.innerWidth / 2, window.innerHeight - baseHeight, // Cima (donde se une el arma)
-        window.innerWidth / 2 - baseWidth / 2, window.innerHeight, // Base izquierda
-        window.innerWidth / 2 + baseWidth / 2, window.innerHeight  // Base derecha
-    );
-    gunBase.setDepth(10); // Misma profundidad o justo debajo del arma
+    gunBase.fillStyle(0x333333, 1);
+    gunBase.fillTriangle(window.innerWidth/2, window.innerHeight-baseHeight, window.innerWidth/2-50, window.innerHeight, window.innerWidth/2+50, window.innerHeight);
+    gunBase.setDepth(10);
 
-    // NUEVO: Creamos el sprite del arma con la imagen fija
+    // Arma (Ametralladora fija con rotación)
     playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - baseHeight + 10, 'arma_fija');
-    // NUEVO: El punto de anclaje (Origin) es crucial.
-    // X=0.5 (centro horizontal), Y=0.9 (cerca de la parte inferior de la imagen).
-    // Esto hace que el arma gire 'sobre' su base/trípode, no desde su centro.
     playerGun.setOrigin(0.5, 0.9).setDepth(11).setScale(0.8);
-    // NUEVO: Inicializar con una rotación neutral (mirando al centro)
-    playerGun.setRotation(Phaser.Math.DegToRad(-90));
 
-
+    // Textos de Interfaz
     scoreText = this.add.text(30, 30, `PUNTOS: 0`, { fontSize: '28px', fill: '#0f0', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 });
     timerText = this.add.text(window.innerWidth-30, 30, `60s`, { fontSize: '28px', fill: '#ff0', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setOrigin(1,0);
 
-    joystickBase = this.add.circle(JOY_X, JOY_Y, JOY_SIZE, 0xffffff, 0.2).setDepth(100).setInteractive();
-    joystickKnob = this.add.circle(JOY_X, JOY_Y, 45, 0x00ff00, 0.8).setDepth(101).setInteractive();
-    this.input.on('pointerdown', (p) => { if(!isGameOver && Phaser.Math.Distance.Between(p.x, p.y, JOY_X, JOY_Y) <= JOY_SIZE) joystickPointer = p; });
-
+    // Joystick visual
+    joystickBase = this.add.circle(JOY_X, JOY_Y, JOY_SIZE, 0xffffff, 0.2).setDepth(100);
+    joystickKnob = this.add.circle(JOY_X, JOY_Y, 45, 0x00ff00, 0.8).setDepth(101);
+    
+    // Botón de Fuego visual
     fireButton = this.add.circle(window.innerWidth-150, JOY_Y, 85, 0xff0000, 0.6).setDepth(100).setInteractive();
     fireText = this.add.text(window.innerWidth-150, JOY_Y, 'FIRE', {fontSize:'32px', fill:'#fff', fontStyle:'bold'}).setOrigin(0.5).setDepth(101);
-    fireButton.on('pointerdown', () => { if(!isGameOver) disparar.call(this); });
+
+    // CONTROL INDEPENDIENTE: Lógica mejorada
+    this.input.on('pointerdown', (pointer) => {
+        if (isGameOver) return;
+        
+        // Mitad izquierda: Joystick
+        if (pointer.x < window.innerWidth / 2) {
+            if (Phaser.Math.Distance.Between(pointer.x, pointer.y, JOY_X, JOY_Y) <= JOY_SIZE * 2.5) {
+                joystickPointer = pointer;
+            }
+        } 
+        // Mitad derecha: Solo si pulsa el botón FIRE
+        else {
+            if (Phaser.Math.Distance.Between(pointer.x, pointer.y, fireButton.x, fireButton.y) <= 90) {
+                disparar.call(this);
+            }
+        }
+    });
 
     this.physics.add.overlap(bullets, targets, impactar, null, this);
     
+    // Eventos de juego
     spawnEvent = this.time.addEvent({ delay: 1200, callback: spawnTarget, callbackScope: this, loop: true });
     
     timerEvent = this.time.addEvent({ delay: 1000, callback: () => { 
@@ -135,28 +138,27 @@ function create() {
 
 function update() {
     if(isGameOver) return;
+
+    // Manejo del Joystick
     if(joystickPointer && joystickPointer.isDown) {
         let dist = Phaser.Math.Distance.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
         let angle = Phaser.Math.Angle.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
         joystickKnob.x = JOY_X + Math.cos(angle) * Math.min(dist, JOY_SIZE);
         joystickKnob.y = JOY_Y + Math.sin(angle) * Math.min(dist, JOY_SIZE);
         crosshair.body.setVelocity((joystickKnob.x - JOY_X) * CROSSHAIR_SPEED, (joystickKnob.y - JOY_Y) * CROSSHAIR_SPEED);
-    } else { joystickKnob.setPosition(JOY_X, JOY_Y); crosshair.body.setVelocity(0); }
+    } else { 
+        joystickKnob.setPosition(JOY_X, JOY_Y); 
+        crosshair.body.setVelocity(0); 
+        joystickPointer = null;
+    }
     
-    // NUEVO: Sistema de apuntado por rotación (sustituye al de frames)
-    // 1. Calcular el ángulo exacto entre el punto de giro del arma y la mira.
+    // Rotación del arma siguiendo la mira
     let angleToCrosshair = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
-    
-    // 2. Aplicar la rotación directamente al sprite de la ametralladora.
     playerGun.setRotation(angleToCrosshair);
 
-    // NUEVO: Limitar la rotación para que el arma no se gire del todo "boca abajo"
-    // Esto asegura un rango de giro lógico (aprox. 120 grados) para el trípode.
-    if (playerGun.rotation < Phaser.Math.DegToRad(-150)) {
-        playerGun.setRotation(Phaser.Math.DegToRad(-150));
-    } else if (playerGun.rotation > Phaser.Math.DegToRad(-30)) {
-        playerGun.setRotation(Phaser.Math.DegToRad(-30));
-    }
+    // Límites de rotación (aprox. 120 grados)
+    if (playerGun.rotation < -2.6) playerGun.setRotation(-2.6);
+    else if (playerGun.rotation > -0.5) playerGun.setRotation(-0.5);
 }
 
 function spawnTarget() {
@@ -164,7 +166,7 @@ function spawnTarget() {
     let rand = Math.random();
     let x, y, t;
 
-    if (rand > 0.5) { 
+    if (rand > 0.5) { // Drones voladores (25 pts)
         let side = Math.random() > 0.5 ? -50 : window.innerWidth + 50;
         x = side;
         y = Phaser.Math.Between(80, window.innerHeight / 2 - 100);
@@ -178,7 +180,7 @@ function spawnTarget() {
             duration: Phaser.Math.Between(3000, 5000),
             onComplete: () => { if(t.active) t.destroy(); }
         });
-    } else { 
+    } else { // Dianas de suelo (10 pts)
         x = Phaser.Math.Between(200, window.innerWidth - 200);
         y = Phaser.Math.Between(window.innerHeight / 2 + 50, window.innerHeight - 350);
         t = targets.create(x, y, 'diana').setDepth(5).setScale(0.5).setAlpha(0);
@@ -194,11 +196,17 @@ function spawnTarget() {
 }
 
 function disparar() {
+    // Sonido disparo
     try { this.sound.play('sfx_disparo', { volume: 0.4 }); } catch(e) {}
     
-    this.tweens.add({ targets: playerGun, y: playerGun.y + 10, duration: 50, yoyo: true }); // NUEVO: Ajuste leve del retroceso visual
-    let b = this.add.rectangle(playerGun.x, playerGun.y-50, 8, 25, 0xffff00); // NUEVO: Ajuste de posición de salida de bala
-    bullets.add(b); this.physics.add.existing(b);
+    // Retroceso visual
+    this.tweens.add({ targets: playerGun, y: playerGun.y + 10, duration: 50, yoyo: true });
+    
+    // Creación de bala
+    let b = this.add.rectangle(playerGun.x, playerGun.y-50, 8, 25, 0xffff00);
+    bullets.add(b); 
+    this.physics.add.existing(b);
+    
     let a = Phaser.Math.Angle.Between(b.x, b.y, crosshair.x, crosshair.y);
     this.physics.velocityFromRotation(a, BULLET_SPEED, b.body.velocity);
     b.rotation = a + Math.PI/2;
@@ -219,8 +227,18 @@ async function finalizarMision(scene) {
     spawnEvent.remove();
     joystickBase.setVisible(false); joystickKnob.setVisible(false); fireButton.setVisible(false); fireText.setVisible(false);
     
-    scene.add.graphics().fillStyle(0x000, 0.85).fillRect(0,0,window.innerWidth, window.innerHeight).setDepth(200);
-    let msg = scene.add.text(window.innerWidth/2, window.innerHeight/2, 'CONECTANDO AL CUARTEL...', {fontSize:'24px', fill:'#0f0'}).setOrigin(0.5).setDepth(201);
+    // Cuadro de ranking reducido (60% de la pantalla)
+    const rw = window.innerWidth * 0.6;
+    const rh = window.innerHeight * 0.6;
+    const rx = (window.innerWidth - rw) / 2;
+    const ry = (window.innerHeight - rh) / 2;
+    
+    scene.add.graphics()
+        .fillStyle(0x000, 0.9)
+        .fillRoundedRect(rx, ry, rw, rh, 20)
+        .setDepth(200);
+    
+    let msg = scene.add.text(window.innerWidth/2, window.innerHeight/2, 'CONECTANDO...', {fontSize:'24px', fill:'#0f0'}).setOrigin(0.5).setDepth(201);
 
     try {
         const ref = database.ref('ranking_mision1');
@@ -228,17 +246,18 @@ async function finalizarMision(scene) {
 
         ref.orderByChild('puntuacion').limitToLast(5).once('value', (snap) => {
             msg.destroy();
-            scene.add.text(window.innerWidth/2, 80, 'TOP 5 RECLUTAS', {fontSize:'45px', fill:'#0f0', fontStyle:'bold'}).setOrigin(0.5).setDepth(201);
+            scene.add.text(window.innerWidth/2, ry + 40, 'TOP 5 RANKING', {fontSize:'38px', fill:'#0f0', fontStyle:'bold'}).setOrigin(0.5).setDepth(201);
             
             let records = [];
             snap.forEach(child => { records.push(child.val()); });
             records.reverse().forEach((p, i) => {
                 let color = (p.nombre === userName && p.puntuacion === score) ? '#0f0' : '#fff';
-                scene.add.text(window.innerWidth/2, 180 + (i*50), `${i+1}. ${p.nombre.toUpperCase()} - ${p.puntuacion} PTS`, {fontSize:'24px', fill: color}).setOrigin(0.5).setDepth(201);
+                scene.add.text(window.innerWidth/2, ry + 110 + (i*40), `${i+1}. ${p.nombre.toUpperCase()} - ${p.puntuacion}`, {fontSize:'22px', fill: color}).setOrigin(0.5).setDepth(201);
             });
 
-            let btn = scene.add.rectangle(window.innerWidth/2, window.innerHeight-80, 250, 60, 0x0f0).setDepth(201).setInteractive();
-            scene.add.text(window.innerWidth/2, window.innerHeight-80, 'REINTENTAR', {fontSize:'24px', fill:'#000', fontStyle:'bold'}).setOrigin(0.5).setDepth(202);
+            // Botón REINTENTAR más grande y centrado abajo
+            let btn = scene.add.rectangle(window.innerWidth/2, ry + rh - 60, 280, 70, 0x0f0).setDepth(201).setInteractive();
+            scene.add.text(window.innerWidth/2, ry + rh - 60, 'REINTENTAR', {fontSize:'28px', fill:'#000', fontStyle:'bold'}).setOrigin(0.5).setDepth(202);
             btn.on('pointerdown', () => scene.scene.restart());
         });
     } catch (e) {
