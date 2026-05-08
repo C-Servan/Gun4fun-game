@@ -84,16 +84,26 @@ function create() {
     crosshair = this.physics.add.image(window.innerWidth/2, window.innerHeight/2, 'mira').setScale(0.25).setDepth(50);
     crosshair.body.setCollideWorldBounds(true);
 
-    // Base del arma
-    const baseHeight = 150;
+    // NUEVO: Trípode y Arma bajados a la mitad de altura
+    const baseHeight = 75; // Antes 150, ahora reducido a la mitad
+    const baseWidth = 60;   // Ajuste visual del trípode
+    
+    // Base del arma (Trípode estático)
     gunBase = this.add.graphics();
     gunBase.fillStyle(0x333333, 1);
-    gunBase.fillTriangle(window.innerWidth/2, window.innerHeight-baseHeight, window.innerWidth/2-50, window.innerHeight, window.innerWidth/2+50, window.innerHeight);
+    gunBase.fillTriangle(
+        window.innerWidth / 2, window.innerHeight - baseHeight, // Cima (donde se une el arma)
+        window.innerWidth / 2 - baseWidth / 2, window.innerHeight, // Base izquierda
+        window.innerWidth / 2 + baseWidth / 2, window.innerHeight  // Base derecha
+    );
     gunBase.setDepth(10);
 
-    // Arma (Ametralladora fija con rotación)
-    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - baseHeight + 10, 'arma_fija');
+    // Arma (Ametralladora fija con rotación suave)
+    // NUEVO: Posición Y ajustada a la nueva altura de la base
+    playerGun = this.add.sprite(window.innerWidth / 2, window.innerHeight - baseHeight + 5, 'arma_fija');
     playerGun.setOrigin(0.5, 0.9).setDepth(11).setScale(0.8);
+    // NUEVO: Girar la imagen original 90 grados para que apunte al centro al inicio
+    playerGun.setRotation(Phaser.Math.DegToRad(-90)); 
 
     // Textos de Interfaz
     scoreText = this.add.text(30, 30, `PUNTOS: 0`, { fontSize: '28px', fill: '#0f0', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 });
@@ -107,18 +117,20 @@ function create() {
     fireButton = this.add.circle(window.innerWidth-150, JOY_Y, 85, 0xff0000, 0.6).setDepth(100).setInteractive();
     fireText = this.add.text(window.innerWidth-150, JOY_Y, 'FIRE', {fontSize:'32px', fill:'#fff', fontStyle:'bold'}).setOrigin(0.5).setDepth(101);
 
-    // CONTROL INDEPENDIENTE: Lógica mejorada
+    // CONTROL INDEPENDIENTE: Lógica mejorada para táctil
     this.input.on('pointerdown', (pointer) => {
         if (isGameOver) return;
         
-        // Mitad izquierda: Joystick
+        // Mitad izquierda de la pantalla: Activar Joystick
         if (pointer.x < window.innerWidth / 2) {
+            // Un área de toque generosa alrededor del joystick visual
             if (Phaser.Math.Distance.Between(pointer.x, pointer.y, JOY_X, JOY_Y) <= JOY_SIZE * 2.5) {
                 joystickPointer = pointer;
             }
         } 
-        // Mitad derecha: Solo si pulsa el botón FIRE
+        // Mitad derecha de la pantalla: Disparo independiente
         else {
+            // Solo si pulsa específicamente el botón FIRE
             if (Phaser.Math.Distance.Between(pointer.x, pointer.y, fireButton.x, fireButton.y) <= 90) {
                 disparar.call(this);
             }
@@ -127,7 +139,7 @@ function create() {
 
     this.physics.add.overlap(bullets, targets, impactar, null, this);
     
-    // Eventos de juego
+    // Eventos de juego (Generación de enemigos y cronómetro)
     spawnEvent = this.time.addEvent({ delay: 1200, callback: spawnTarget, callbackScope: this, loop: true });
     
     timerEvent = this.time.addEvent({ delay: 1000, callback: () => { 
@@ -139,7 +151,7 @@ function create() {
 function update() {
     if(isGameOver) return;
 
-    // Manejo del Joystick
+    // Manejo suave del Joystick
     if(joystickPointer && joystickPointer.isDown) {
         let dist = Phaser.Math.Distance.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
         let angle = Phaser.Math.Angle.Between(JOY_X, JOY_Y, joystickPointer.x, joystickPointer.y);
@@ -147,18 +159,28 @@ function update() {
         joystickKnob.y = JOY_Y + Math.sin(angle) * Math.min(dist, JOY_SIZE);
         crosshair.body.setVelocity((joystickKnob.x - JOY_X) * CROSSHAIR_SPEED, (joystickKnob.y - JOY_Y) * CROSSHAIR_SPEED);
     } else { 
+        // Reset del Joystick si no se toca
         joystickKnob.setPosition(JOY_X, JOY_Y); 
         crosshair.body.setVelocity(0); 
         joystickPointer = null;
     }
     
-    // Rotación del arma siguiendo la mira
+    // Rotación del arma para seguir la mira con precisión
+    // 1. Calcular el ángulo exacto entre el punto de giro del arma y la mira
     let angleToCrosshair = Phaser.Math.Angle.Between(playerGun.x, playerGun.y, crosshair.x, crosshair.y);
+    
+    // NUEVO: Sistema de apuntado con rango de giro de 180° (90° izq, 90° der)
+    // El ángulo de Phaser '0' es horizontal derecha, '-PI/2' es vertical arriba.
+    // Nuestra posición inicial neutral es '-PI/2' (apuntando arriba).
+    
+    // Aplicar la rotación directamente
     playerGun.setRotation(angleToCrosshair);
 
-    // Límites de rotación (aprox. 120 grados)
-    if (playerGun.rotation < -2.6) playerGun.setRotation(-2.6);
-    else if (playerGun.rotation > -0.5) playerGun.setRotation(-0.5);
+    // NUEVO: Límites de rotación estrictos (Rango de 180 grados, centrado arriba)
+    // Límite Izquierda (vertical arriba + 90°): -PI (-3.14 rad)
+    // Límite Derecha (vertical arriba - 90°): 0 (0 rad)
+    if (playerGun.rotation < -Math.PI) playerGun.setRotation(-Math.PI);
+    else if (playerGun.rotation > 0) playerGun.setRotation(0);
 }
 
 function spawnTarget() {
@@ -166,7 +188,7 @@ function spawnTarget() {
     let rand = Math.random();
     let x, y, t;
 
-    if (rand > 0.5) { // Drones voladores (25 pts)
+    if (rand > 0.5) { // Drones voladores (Cruzan la pantalla lateralmente - 25 pts)
         let side = Math.random() > 0.5 ? -50 : window.innerWidth + 50;
         x = side;
         y = Phaser.Math.Between(80, window.innerHeight / 2 - 100);
@@ -180,7 +202,7 @@ function spawnTarget() {
             duration: Phaser.Math.Between(3000, 5000),
             onComplete: () => { if(t.active) t.destroy(); }
         });
-    } else { // Dianas de suelo (10 pts)
+    } else { // Dianas de suelo (Aparecen del carril central de tierra - 10 pts)
         x = Phaser.Math.Between(200, window.innerWidth - 200);
         y = Phaser.Math.Between(window.innerHeight / 2 + 50, window.innerHeight - 350);
         t = targets.create(x, y, 'diana').setDepth(5).setScale(0.5).setAlpha(0);
@@ -188,6 +210,7 @@ function spawnTarget() {
         this.tweens.add({ targets: t, alpha: 1, duration: 300 });
         this.time.delayedCall(2000, () => {
             if (t && t.active) {
+                // Se hunden en el suelo al irse
                 this.tweens.add({ targets: t, y: t.y + 100, alpha: 0, duration: 500, onComplete: () => t.destroy() });
             }
         });
@@ -196,27 +219,28 @@ function spawnTarget() {
 }
 
 function disparar() {
-    // Sonido disparo
+    // Sonido disparo con volumen ajustado
     try { this.sound.play('sfx_disparo', { volume: 0.4 }); } catch(e) {}
     
-    // Retroceso visual
-    this.tweens.add({ targets: playerGun, y: playerGun.y + 10, duration: 50, yoyo: true });
+    // Pequeño retroceso visual del arma
+    this.tweens.add({ targets: playerGun, y: playerGun.y + 5, duration: 50, yoyo: true });
     
-    // Creación de bala
-    let b = this.add.rectangle(playerGun.x, playerGun.y-50, 8, 25, 0xffff00);
+    // Creación de la bala física
+    let b = this.add.rectangle(playerGun.x, playerGun.y-25, 8, 25, 0xffff00); // Salida de bala ajustada a la nueva altura
     bullets.add(b); 
     this.physics.add.existing(b);
     
+    // Calcular trayectoria de la bala hacia la mira
     let a = Phaser.Math.Angle.Between(b.x, b.y, crosshair.x, crosshair.y);
     this.physics.velocityFromRotation(a, BULLET_SPEED, b.body.velocity);
     b.rotation = a + Math.PI/2;
 }
 
 function impactar(b, t) {
-    b.destroy(); 
-    t.setFrame(1); 
-    t.body.enable = false;
-    this.tweens.killTweensOf(t);
+    b.destroy(); // La bala desaparece al impactar
+    t.setFrame(1); // Frame de 'destruido'
+    t.body.enable = false; // Desactivar física de la diana
+    this.tweens.killTweensOf(t); // Detener movimientos si era un dron
     score += (t.tipo === 'drone') ? 25 : 10;
     scoreText.setText(`PUNTOS: ${score}`);
     this.time.delayedCall(400, () => { if(t.active) t.destroy(); });
@@ -227,7 +251,7 @@ async function finalizarMision(scene) {
     spawnEvent.remove();
     joystickBase.setVisible(false); joystickKnob.setVisible(false); fireButton.setVisible(false); fireText.setVisible(false);
     
-    // Cuadro de ranking reducido (60% de la pantalla)
+    // Cuadro de ranking reducido (60% de la pantalla) y centrado
     const rw = window.innerWidth * 0.6;
     const rh = window.innerHeight * 0.6;
     const rx = (window.innerWidth - rw) / 2;
@@ -238,24 +262,27 @@ async function finalizarMision(scene) {
         .fillRoundedRect(rx, ry, rw, rh, 20)
         .setDepth(200);
     
-    let msg = scene.add.text(window.innerWidth/2, window.innerHeight/2, 'CONECTANDO...', {fontSize:'24px', fill:'#0f0'}).setOrigin(0.5).setDepth(201);
+    let msg = scene.add.text(window.innerWidth/2, window.innerHeight/2, 'CONECTANDO AL CUARTEL...', {fontSize:'24px', fill:'#0f0'}).setOrigin(0.5).setDepth(201);
 
     try {
+        // Guardar puntuación en Firebase
         const ref = database.ref('ranking_mision1');
         await ref.push().set({ nombre: userName, puntuacion: score });
 
+        // Leer y ordenar Top 5
         ref.orderByChild('puntuacion').limitToLast(5).once('value', (snap) => {
             msg.destroy();
-            scene.add.text(window.innerWidth/2, ry + 40, 'TOP 5 RANKING', {fontSize:'38px', fill:'#0f0', fontStyle:'bold'}).setOrigin(0.5).setDepth(201);
+            scene.add.text(window.innerWidth/2, ry + 40, 'TOP 5 RECLUTAS ELITE', {fontSize:'38px', fill:'#0f0', fontStyle:'bold'}).setOrigin(0.5).setDepth(201);
             
             let records = [];
             snap.forEach(child => { records.push(child.val()); });
             records.reverse().forEach((p, i) => {
+                // Resaltar la puntuación del jugador actual si está en el Top
                 let color = (p.nombre === userName && p.puntuacion === score) ? '#0f0' : '#fff';
                 scene.add.text(window.innerWidth/2, ry + 110 + (i*40), `${i+1}. ${p.nombre.toUpperCase()} - ${p.puntuacion}`, {fontSize:'22px', fill: color}).setOrigin(0.5).setDepth(201);
             });
 
-            // Botón REINTENTAR más grande y centrado abajo
+            // Botón REINTENTAR más grande y centrado abajo dentro del cuadro
             let btn = scene.add.rectangle(window.innerWidth/2, ry + rh - 60, 280, 70, 0x0f0).setDepth(201).setInteractive();
             scene.add.text(window.innerWidth/2, ry + rh - 60, 'REINTENTAR', {fontSize:'28px', fill:'#000', fontStyle:'bold'}).setOrigin(0.5).setDepth(202);
             btn.on('pointerdown', () => scene.scene.restart());
