@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Gun4Fun: Misión 1 - Entrenamiento Élite (Versión Extendida v2.0)</title>
+    <title>Gun4Fun: Misión 1 - Entrenamiento Élite (Versión Final v2.1)</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -357,8 +357,8 @@ function disparar() {
     this.tweens.add({ targets: playerGun, y: playerGun.y + 15, duration: 50, yoyo: true });
     
     // CÁLCULO DE LA PUNTA DEL CAÑÓN:
-    // Al estar el arma hundida, usamos un largo de cañón de 250px desde la base
-    let largoDelCañon = 250; 
+    // Al estar el arma hundida, usamos un largo de cañón de 320px (valor ajustado para final de imagen)
+    let largoDelCañon = 320; 
     let muzzleX = playerGun.x + Math.cos(playerGun.rotation - Math.PI/2) * largoDelCañon;
     let muzzleY = playerGun.y + Math.sin(playerGun.rotation - Math.PI/2) * largoDelCañon;
 
