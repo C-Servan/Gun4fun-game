@@ -351,10 +351,10 @@ function disparar() {
     
     /**
      * CÁLCULO DE MUZZLE (SALIDA DE BALA)
-     * He subido el valor a 380 para que la bala nazca 2cm más arriba
+     * He subido el valor a 980 para que la bala nazca 2cm más arriba
      * que en la versión anterior, coincidiendo con la punta visual del arma.
      */
-    let largoDelCañon = 680; 
+    let largoDelCañon = 980; 
     let muzzleX = playerGun.x + Math.cos(playerGun.rotation - Math.PI/2) * largoDelCañon;
     let muzzleY = playerGun.y + Math.sin(playerGun.rotation - Math.PI/2) * largoDelCañon;
 
