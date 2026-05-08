@@ -31,7 +31,7 @@ bot = telebot.TeleBot(TOKEN)
 
 # URL de tu base de datos Firebase (la misma que usa el juego)
 FIREBASE_DB_URL = "https://gun4fun-ranking-default-rtdb.europe-west1.firebasedatabase.app/ranking.json"
-ID_GRUPO_OBJETIVO = -1002035446864
+ID_GRUPO_OBJETIVO = -1002150568256
 
 # --- NUEVO: SISTEMA DE SEGUIMIENTO DE MENSAJES PARA LIMPIEZA ---
 # Diccionario para rastrear los mensajes enviados por el bot en cada chat
