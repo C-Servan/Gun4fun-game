@@ -17,6 +17,7 @@ def home():
     return "¡Bot Gun4Fun está vivo y operando!"
 
 def run_server():
+    # Render usa el puerto 10000 por defecto, pero mantenemos tu lógica de os.environ
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -80,7 +81,7 @@ FRASES_INSTRUCTOR = [
     "Soldados, el objetivo es eliminar enemigos, no hacerse selfies.",
     "Veo muchos nombres abajo. ¿Están de vacaciones o tienen miedo?",
     "¡Atención! Si el ranking fuera un desfile, iríais marcha atrás.",
-    "¿Disparáis balas o palomitas? ¡Esa puntería es de vergüenza!",
+    "¿Disparáis balas o palomitas? ¡Esa puntería es de verguezna!",
     "He visto reclutas con más agallas en su primer día. ¡Espabilad!",
     "Soldado, si buscas el botón de 'rendirse', te has equivocado.",
     "¿Esa es vuestra puntuación o la temperatura? ¡Es ridícula!",
@@ -228,7 +229,17 @@ def callback_handler(call):
     else:
         bot.answer_callback_query(call.id)
 
-# --- 5. ARRANQUE COMBINADO ---
+# --- 5. ARRANQUE COMBINADO Y BLINDAJE ANTI-CORTES ---
 if __name__ == "__main__":
     keep_alive()
-    bot.polling(none_stop=True)
+    print("Oficial Instructor S-2: Protocolo Anti-Cortes activado en Render.")
+    
+    while True:
+        try:
+            # Iniciamos el polling con un timeout para evitar bloqueos largos
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            # Si ocurre el Error 104 o cualquier otro, el bot espera 5 segundos y se levanta solo
+            print(f"⚠️ INTERFERENCIA DE RED DETECTADA: {e}")
+            print("🔄 Reestableciendo comunicaciones en 5 segundos...")
+            time.sleep(5)
